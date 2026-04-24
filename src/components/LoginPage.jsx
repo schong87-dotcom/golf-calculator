@@ -50,7 +50,7 @@ export default function LoginPage({ onLogin }) {
             <label>비밀번호</label>
             <input
               type="password"
-              placeholder="자유롭게 설정하세요"
+              placeholder="6자리 이상"
               value={password}
               onChange={e => { setPassword(e.target.value); setError(''); }}
               disabled={loading}
