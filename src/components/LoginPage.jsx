@@ -10,6 +10,10 @@ export default function LoginPage({ onLogin }) {
   const handleSubmit = async e => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
+    if (password.length < 6) {
+      setError('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
     setLoading(true);
     setError('');
     const result = await login(username.trim(), password.trim());

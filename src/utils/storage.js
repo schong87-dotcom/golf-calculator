@@ -27,7 +27,13 @@ export async function login(username, password) {
       password,
       options: { data: { username } },
     })
-    if (signUpError) return { success: false, message: '비밀번호가 올바르지 않습니다.' }
+    if (signUpError) {
+      const msg = signUpError.message.toLowerCase()
+      if (msg.includes('password') || msg.includes('characters')) {
+        return { success: false, message: '비밀번호는 최소 6자 이상이어야 합니다.' }
+      }
+      return { success: false, message: '비밀번호가 올바르지 않습니다.' }
+    }
     // 가입 성공 후 로그인
     const { error: reSignInError } = await supabase.auth.signInWithPassword({ email, password })
     if (reSignInError) return { success: false, message: reSignInError.message }
