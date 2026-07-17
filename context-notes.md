@@ -23,3 +23,13 @@
   - 주의: 앱이 테스트 모드라 테스트 사용자만 로그인 가능. 배포 전에 Google 인증 플랫폼 → 대상(Audience)에서 프로덕션 게시 필요 (기본 스코프만 쓰므로 심사 불필요).
 - Supabase: 무료 플랜 미사용으로 프로젝트("Golf Calulator")가 일시정지 상태였음 → Resume 실행, 복원 대기 중 (2026-07-17 저녁). 복원이 끝나면 Google 프로바이더 활성화 + URL Configuration 설정 남음.
 - Supabase 대시보드 로그인은 GitHub 계정 (사용자가 직접 로그인).
+
+### 완료 (2026-07-17 밤)
+
+- Supabase Google 프로바이더 활성화 완료 (클라이언트 ID + 시크릿 입력, 시크릿은 사용자가 직접 붙여넣음).
+- 구글 앱 프로덕션 게시 완료 → 아무 구글 계정이나 로그인 가능.
+- 프로덕션 배포 완료. **공개 주소: https://golf-calculator-six.vercel.app**
+- Supabase URL Configuration 최종값: Site URL = 배포 주소, Redirect URLs = 배포 주소 + http://localhost:5173.
+- 로컬/배포 양쪽에서 구글 로그인 → 라운드 저장/불러오기 검증 완료.
+- 주의: Supabase 무료 플랜은 1주 미사용 시 프로젝트 일시정지됨 → 대시보드에서 Resume 필요. 복원 직후 대시보드가 빈 화면이면 강력 새로고침(cmd+shift+r).
+- App.jsx의 `getSavedRounds` import는 미사용(전환 전부터 존재) → lint 에러 1건. 다음 정리 때 제거 후보.
