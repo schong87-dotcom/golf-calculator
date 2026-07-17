@@ -1,57 +1,30 @@
 import { supabase } from './supabase'
 
-// Supabase Auth는 이메일 필수 → 이름을 이메일로 변환 (내부 처리용)
-// 한글 등 비ASCII 문자를 16진수 코드로 변환하여 유효한 이메일 주소 생성
-const toEmail = username => {
-  const safe = Array.from(username.trim().toLowerCase())
-    .map(c => /[a-z0-9]/.test(c) ? c : c.charCodeAt(0).toString(16))
-    .join('')
-  return `u${safe}@golf-app.local`
-}
-
 // ─── Auth ──────────────────────────────────────────────────────────────────
 
-export async function login(username, password) {
-  const email = toEmail(username)
-
-  // 로그인 시도
-  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-
-  if (!signInError) return { success: true }
-
-  // 틀린 비밀번호
-  if (signInError.message.toLowerCase().includes('invalid')) {
-    // 신규 사용자인지 확인: 가입 시도
-    const { error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { username } },
-    })
-    if (signUpError) {
-      const msg = signUpError.message.toLowerCase()
-      if (msg.includes('password') || msg.includes('characters')) {
-        return { success: false, message: '비밀번호는 최소 6자 이상이어야 합니다.' }
-      }
-      return { success: false, message: '비밀번호가 올바르지 않습니다.' }
-    }
-    // 가입 성공 후 로그인
-    const { error: reSignInError } = await supabase.auth.signInWithPassword({ email, password })
-    if (reSignInError) return { success: false, message: reSignInError.message }
-    return { success: true }
-  }
-
-  return { success: false, message: signInError.message }
+export async function loginWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin },
+  })
+  if (error) return { success: false, message: error.message }
+  return { success: true }
 }
 
 export async function logout() {
   await supabase.auth.signOut()
 }
 
-export async function getSession() {
-  const { data } = await supabase.auth.getSession()
-  if (!data.session) return null
-  const username = data.session.user.user_metadata?.username || data.session.user.email?.split('@')[0]
-  return { username }
+// 로그인/로그아웃/OAuth 리다이렉트 복귀를 모두 이 구독으로 감지한다.
+// callback은 로그인 시 { username }, 로그아웃 시 null을 받는다.
+export function onAuthChange(callback) {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!session) return callback(null)
+    const meta = session.user.user_metadata || {}
+    const username = meta.full_name || meta.name || session.user.email?.split('@')[0]
+    callback({ username })
+  })
+  return () => subscription.unsubscribe()
 }
 
 // ─── Current Round (임시 작업본) ────────────────────────────────────────────

@@ -95,6 +95,33 @@ body {
   margin-bottom: 8px;
 }
 
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 16px;
+  background: white;
+  border: 1px solid #dadce0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #3c4043;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.btn-google:hover {
+  background: #f8f9fa;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.btn-google:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ─── App Layout ─── */
 .app {
   min-height: 100vh;

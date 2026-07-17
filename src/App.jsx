@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import LoginPage from './components/LoginPage';
 import Header from './components/Header';
 import RoundInfo from './components/RoundInfo';
@@ -7,7 +7,7 @@ import CostItems from './components/CostItems';
 import SettlementResult from './components/SettlementResult';
 import HistoryModal from './components/HistoryModal';
 import {
-  getSession, logout,
+  onAuthChange, logout,
   saveRound, loadRound,
   saveRoundToHistory, getSavedRounds, deleteRoundFromHistory,
 } from './utils/storage';
@@ -40,26 +40,26 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // 세션 복원
+  // 세션 감지: 최초 로드, OAuth 리다이렉트 복귀, 로그아웃 모두 여기서 처리
+  // roundLoadedRef: 토큰 갱신 등 반복 이벤트에서 loadRound가 편집 중인 화면을 덮어쓰지 않도록 최초 1회만 로드
+  const roundLoadedRef = useRef(false);
   useEffect(() => {
-    getSession().then(session => {
+    return onAuthChange(session => {
       if (session) {
         setUsername(session.username);
-        loadRound().then(saved => {
-          if (saved) setRound(saved);
-        });
+        if (!roundLoadedRef.current) {
+          roundLoadedRef.current = true;
+          loadRound().then(saved => {
+            if (saved) setRound(saved);
+          });
+        }
+      } else {
+        roundLoadedRef.current = false;
+        setUsername(null);
       }
       setLoading(false);
     });
   }, []);
-
-  const handleLogin = async name => {
-    setUsername(name);
-    const saved = await loadRound();
-    if (saved) setRound(saved);
-    else setRound(makeDefaultRound());
-    setResult(null);
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -133,7 +133,7 @@ export default function App() {
   }
 
   if (!username) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage />;
   }
 
   return (
