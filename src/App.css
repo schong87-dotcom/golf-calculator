@@ -169,13 +169,14 @@ body {
 }
 
 .header-title h1 {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.2;
+  color: #fff;
 }
 
 .header-title p {
-  font-size: 11px;
+  font-size: 12px;
   opacity: 0.8;
 }
 
