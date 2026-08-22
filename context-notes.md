@@ -128,3 +128,21 @@ CLI에는 resume 명령이 없다(`supabase projects`는 list/create/api-keys/de
   옛 주소를 통합 주소로 리다이렉트하거나 프로젝트를 정리할지는 별도 결정 필요.
 - 도쿄의 `Golf Calulator` 프로젝트(rjbmxsvwtmqpivrpaahi)는 이제 쓰지 않는다. 삭제 여부는 사용자 결정.
 - `App.jsx`의 `getSavedRounds` 미사용 import는 통합 전부터 있던 lint 에러다. 손대지 않았다.
+
+### 배포 (2026-08-22)
+
+- **Vercel `golf-calculator`는 GitHub 자동 배포가 연결돼 있지 않다.** main에 push해도 배포가 안 걸린다.
+  `vercel --prod --yes`로 직접 배포해야 한다. (옛 게임 레포는 push 자동배포라 README에 적혀 있었는데,
+  골프 쪽은 다르다. 헷갈리기 쉬우니 기록해 둔다.)
+- 환경변수는 `vercel env rm` → `vercel env add`로 교체했다. Sensitive 타입이라 `vercel env pull`로는
+  값이 `[SENSITIVE]`로만 나온다. 검증은 배포된 번들을 직접 grep해서 했다.
+- 배포 검증 (실측)
+  - `https://golf-calculator-six.vercel.app/game/` → HTTP 200, `<title>재무제표 학습 게임</title>`.
+    Vercel이 디렉터리 인덱스를 알아서 서빙하므로 vercel.json 없이 동작한다.
+  - React 번들과 `game/js/supabase-config.js` 둘 다 `cgkocnezpitydxrflxom`을 가리킨다.
+  - 실제 구글 로그인 → 허브 → `/game/` 직접 접근 시 로그인 화면 없이 게임 화면 + 기존 기록 표시.
+
+### 작업 환경 마찰
+
+이 레포는 Google Drive 스트리밍 폴더에 있어 파일 I/O가 느리다. `vite build`가 실제 빌드는 1분 30초인데
+전체로는 6분 넘게 걸린다(첫 빌드 기준, 이후 캐시되면 수백 ms). 빌드가 멈춘 것처럼 보여도 기다리면 된다.

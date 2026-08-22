@@ -56,11 +56,11 @@
 - [x] 골프 스키마(current_round, rounds)를 통합 프로젝트에 적용
 - [x] Supabase URL Configuration에 golf-calculator 주소 + localhost:5173 등록
 - [x] vite.config.js: dev 서버가 `/game/`을 SPA fallback으로 가로채는 문제 해결
-- [ ] Vercel `golf-calculator` 환경변수 2개 교체
+- [x] Vercel `golf-calculator` 환경변수 2개 교체
 
 ## 검증
 - [x] npm run build 통과
 - [x] 로컬: 구글 로그인 1회 → 골프/게임 양쪽 모두 로그인 상태 유지 확인
 - [x] 로컬: 라운드 저장/불러오기 + 게임 기록 저장 확인
-- [ ] 커밋 + 배포
-- [ ] 배포 주소에서 동일 검증
+- [x] 커밋 + 배포
+- [x] 배포 주소에서 동일 검증
