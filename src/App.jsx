@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import LoginPage from './components/LoginPage';
+import AppHub from './components/AppHub';
 import Header from './components/Header';
 import RoundInfo from './components/RoundInfo';
 import Participants from './components/Participants';
@@ -35,6 +36,8 @@ function makeDefaultRound() {
 export default function App() {
   const [username, setUsername] = useState(null);
   const [loading, setLoading] = useState(true);
+  // 로그인 후 어떤 앱을 보여줄지. 재무제표 게임은 /game/ 정적 페이지라 여기 들어오지 않는다.
+  const [view, setView] = useState('hub');
   const [round, setRound] = useState(makeDefaultRound());
   const [result, setResult] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -64,6 +67,7 @@ export default function App() {
   const handleLogout = async () => {
     await logout();
     setUsername(null);
+    setView('hub');
     setRound(makeDefaultRound());
     setResult(null);
   };
@@ -136,6 +140,16 @@ export default function App() {
     return <LoginPage />;
   }
 
+  if (view === 'hub') {
+    return (
+      <AppHub
+        username={username}
+        onSelectGolf={() => setView('golf')}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <Header
@@ -145,6 +159,7 @@ export default function App() {
         onReset={handleReset}
         onLogout={handleLogout}
         onOpenHistory={() => setShowHistory(true)}
+        onBackToHub={() => setView('hub')}
       />
 
       <main className="main-content">

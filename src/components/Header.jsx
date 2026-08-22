@@ -1,14 +1,19 @@
-export default function Header({ onSave, onReset, onLogout, onOpenHistory, canSave }) {
+export default function Header({ onSave, onReset, onLogout, onOpenHistory, onBackToHub, canSave }) {
   return (
     <header className="app-header">
       <div className="header-inner">
-        <button
-          className={`btn-header-save ${canSave ? '' : 'disabled'}`}
-          onClick={canSave ? onSave : undefined}
-          title="저장"
-        >
-          💾 저장
-        </button>
+        <div className="header-left">
+          <button className="btn-header-icon" onClick={onBackToHub} title="앱 선택">
+            ←
+          </button>
+          <button
+            className={`btn-header-save ${canSave ? '' : 'disabled'}`}
+            onClick={canSave ? onSave : undefined}
+            title="저장"
+          >
+            💾 저장
+          </button>
+        </div>
 
         <div className="header-title">
           <span className="header-logo">⛳</span>

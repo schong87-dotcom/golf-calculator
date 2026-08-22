@@ -43,3 +43,88 @@
 - **폰트 크기**: h1 18px → 20px, 부제 p 11px → 12px. 헤더 높이는 로고(40px) + padding(10px×2) = 60px가 지배하고 제목 블록은 약 38px → 42px로만 커져서, 헤더가 60px → 62px로 2px 늘 뿐 레이아웃은 유지된다. 480px 미디어쿼리에도 헤더 h1 크기를 덮는 규칙이 없어 모바일에서도 동일하게 적용.
 - 검증: `npm run build` 통과, 빌드 산출 CSS에 `.header-title h1{color:#fff;font-size:20px...}` 확인, 헤더 마크업을 빌드 CSS로 렌더해 흰 글씨·레이아웃 유지 스크린샷으로 확인.
 - 참고: `node_modules/.bin`이 비어 있어 `vite: command not found`가 났음 → `npm install` 재실행으로 해결.
+
+## 2026-08-22 재무제표 게임과 통합 (Supabase 프로젝트 1개로)
+
+### 배경 — 사용자 전제와 실제가 달랐다
+
+사용자는 "재무제표 게임 Supabase는 살아있고 골프정산기는 꺼져 있다"고 알고 있었으나,
+`supabase projects list` 실측 결과 **둘 다 INACTIVE**였다. 조직 내 유일한 ACTIVE는 yun-secretary.
+
+| 프로젝트 | ref | 리전 | 상태(2026-08-22) |
+|---|---|---|---|
+| yun-secretary | rigjtnxlxiuxcopymdcc | 서울 | ACTIVE_HEALTHY |
+| finance-statement-game | cgkocnezpitydxrflxom | 서울 | INACTIVE |
+| Golf Calulator | rjbmxsvwtmqpivrpaahi | 도쿄 | INACTIVE |
+| schong87-Project-Manage | gpgmybgwumrwexmiljaw | 서울 | INACTIVE |
+| schong87-dotcom's Project | mihpjizfwhdgiqvjzorw | 시드니 | INACTIVE |
+
+통합해도 1주 미사용 자동 일시정지는 그대로 남는다. 다만 한쪽만 써도 둘 다 살아있는 효과는 생긴다.
+
+### 핵심 설계 판단 — 왜 Vercel 배포까지 합쳐야 하는가
+
+**Supabase만 합치면 "로그인 후 앱 선택"이 성립하지 않는다.** Supabase 세션은 브라우저
+localStorage에 `sb-<projectRef>-auth-token` 키로 저장되고, localStorage는 오리진 단위로 격리된다.
+DB가 같아도 도메인이 다르면 세션이 공유되지 않아 앱마다 다시 로그인해야 한다.
+한 도메인 아래 경로로 나누면(`/` 허브, `/game/` 게임) 두 앱이 같은 localStorage 키를 읽어
+**한 번 로그인으로 양쪽이 로그인 상태**가 된다. 프로젝트 ref가 같으므로 키 이름도 자동으로 일치한다.
+
+### 왜 골프정산기 레포를 베이스로 삼는가
+
+- 골프=React+Vite, 게임=바닐라 정적 HTML(빌드 없음, CDN Tailwind + CDN supabase-js)로 스택이 다르다.
+- 게임을 React로 포팅하면 2,000줄 재작성이다. 과하다.
+- 반대로 게임 파일을 골프 레포의 `public/game/`에 그대로 두면 Vite가 빌드 시 `dist/game/`으로
+  **무변환 복사**한다. 코드 재작성이 사실상 없다. 그래서 Vite가 이미 있는 골프 레포가 베이스다.
+- 게임을 Vite의 multi-page input으로 넣는 방법도 있으나, 게임 JS가 IIFE + window 전역 + script 태그
+  순서 의존이라 번들러를 태우면 깨질 위험이 있다. public/ 무변환 복사가 안전하다.
+
+### 통합 Supabase를 finance-statement-game으로 정한 이유
+
+- 서울 리전(골프는 도쿄)이라 응답이 빠르다.
+- 이미 신형 publishable key(`sb_publishable_...`)를 쓴다.
+- 테이블 이름이 겹치지 않는다 — 게임 `game_records` vs 골프 `current_round`/`rounds`.
+  통합 프로젝트에 골프 스키마만 추가 실행하면 된다.
+- 대가: 골프정산기의 기존 저장 데이터는 버린다(사용자 확인 완료). 도쿄 프로젝트를 되살려
+  export/import하는 비용보다 버리는 편이 싸다고 판단.
+
+### 로그인을 구글 하나로 통일
+
+게임에는 이름+비밀번호 로그인이 있었고, 내부적으로 이름을 UTF-8 hex로 펴서
+`u<hex>@fsg.local` 가짜 이메일 계정을 만들었다. **Supabase에서 이 계정과 구글 계정은 별개 계정**이라
+기록이 합쳐지지 않는다. 허브 로그인을 구글로 통일하기로 했으므로(사용자 확인 완료)
+기존 이름+비번 계정의 게임 기록은 접근 불가가 된다. 게임의 signIn/migrateLegacy 코드는 제거한다.
+
+### 구현 중 걸린 것 — dev 서버가 `/game/`을 가로챈다
+
+Vite dev 서버는 확장자 없는 경로를 SPA fallback으로 처리해 React의 index.html을 돌려준다.
+그래서 `/game/js/auth.js`는 정상인데 `/game/`만 골프 앱이 떴다. `/game/index.html`은 정상 동작.
+`vite.config.js`에 미들웨어 플러그인 하나를 넣어 `/game`·`/game/`을 `/game/index.html`로 재작성했다.
+`configureServer`에서 `server.middlewares.use()`를 직접 호출하면 Vite 내부 미들웨어보다 앞에 붙는다.
+빌드 산출물에는 영향이 없다 — 프로덕션은 Vercel이 디렉터리 인덱스로 처리한다.
+
+### 검증 결과 (로컬, 2026-08-22)
+
+- 구글 로그인 1회 → 허브 → `/game/` 이동 시 **로그인 화면 없이 곧바로 게임 모드 화면**. 세션 공유 확인.
+- 게임 → 허브 복귀도 로그인 유지. 양방향 확인.
+- 게임 카드에 기존 구글 계정 기록(최고 31초·2회)이 그대로 표시됨 → 게임 데이터 보존 확인.
+- 골프에서 골프장명 입력 → `current_round`에 실제로 upsert됨을 DB 조회로 확인 후 테스트 행 삭제.
+- 통합 DB 상태: `current_round`·`rounds`·`game_records` 3개 테이블 모두 RLS on, 정책 정상.
+
+### Supabase 조작은 Management API로 했다
+
+CLI에는 resume 명령이 없다(`supabase projects`는 list/create/api-keys/delete뿐).
+액세스 토큰은 macOS 키체인의 `Supabase CLI` 항목에 있고, 다음 엔드포인트를 curl로 호출했다.
+
+- `POST /v1/projects/{ref}/restore` — 일시정지 해제 (몇 분 뒤 ACTIVE_HEALTHY)
+- `POST /v1/projects/{ref}/database/query` — SQL 실행 (스키마 적용·조회)
+- `PATCH /v1/projects/{ref}/config/auth` — site_url, uri_allow_list 변경
+
+주의: 파이썬 urllib으로 호출하면 Cloudflare가 403(error 1010)으로 막는다. curl은 통과한다.
+
+### 남은 정리 대상 (이번 작업 범위 밖)
+
+- Vercel `finance-statement-game` 프로젝트와 그 레포는 아직 살아 있다. 옛 주소로 들어오면
+  통합 전 코드(이름+비번 로그인 포함)가 그대로 뜬다. Supabase의 `uri_allow_list`에도 남겨두었다.
+  옛 주소를 통합 주소로 리다이렉트하거나 프로젝트를 정리할지는 별도 결정 필요.
+- 도쿄의 `Golf Calulator` 프로젝트(rjbmxsvwtmqpivrpaahi)는 이제 쓰지 않는다. 삭제 여부는 사용자 결정.
+- `App.jsx`의 `getSavedRounds` 미사용 import는 통합 전부터 있던 lint 에러다. 손대지 않았다.
