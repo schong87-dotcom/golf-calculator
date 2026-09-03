@@ -4,3 +4,4 @@ dist
 .env.local
 .DS_Store
 .vercel
+00_프롬프트/
