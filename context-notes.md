@@ -168,3 +168,52 @@ CLI에는 resume 명령이 없다(`supabase projects`는 list/create/api-keys/de
 
 곁들여 `index.html`의 `<title>`이 `golf-calculator`, `lang`이 `en`으로 남아 있어
 `앱 모음 — 골프 정산 · 재무제표 게임` / `ko`로 고쳤다.
+
+## 2026-09-04 Supabase 자동 깨우기 + Google Drive에서 .git 손상
+
+### 사건 — 접속 불가
+
+2026-09-03 밤 사용자가 접속이 안 된다고 알림. 화면이 "불러오는 중..."에서 멈춰 있었다.
+원인은 Supabase 프로젝트가 `INACTIVE`(무료 플랜 7일 미사용 자동 일시정지).
+`cgkocnezpitydxrflxom.supabase.co` 는 DNS조차 해석되지 않았다. Vercel 사이트 자체는 HTTP 200으로 멀쩡했다.
+→ Management API `POST /v1/projects/{ref}/restore` 로 복원, 몇 분 뒤 ACTIVE_HEALTHY. **데이터는 그대로였다.**
+
+### 자동 깨우기 설계
+
+"컴퓨터가 꺼져 있어도 되게" 라는 요구가 핵심이라 로컬 cron/launchd는 탈락했다.
+Vercel Cron은 Vercel 서버에서 실행되므로 개발자 PC와 무관하다.
+
+- 찌르는 방식은 `/rest/v1/game_records?select=id&limit=1`. RLS 때문에 익명에는 0행이 오지만
+  요청은 PostgREST를 거쳐 **실제 DB까지 도달**한다. Supabase는 이 도달을 활동으로 집계한다.
+  service_role 키를 쓸 필요가 없어 보안 노출면이 늘지 않는다.
+- 스케줄 `0 3 * * *`. **Hobby 플랜은 cron 하루 1회가 상한**이다. 기준이 7일이라 충분하다.
+- `CRON_SECRET` 인증은 넣지 않았다. 이 엔드포인트는 SELECT만 하고 아무 상태도 바꾸지 않아
+  외부에서 호출돼도 피해가 없고, 오히려 깨우는 데 도움이 된다.
+- **한계: 이미 정지된 프로젝트는 크론으로 깨어나지 않는다.** 그래서 연결 실패(DNS 실패) 시
+  503과 함께 "대시보드 수동 복원 필요" 힌트를 응답에 담았다.
+
+검증: `npm test` 6 pass, 배포 후 엔드포인트 `{"ok":true,"status":200}`,
+`vercel crons ls`에 등록 확인, `vercel crons run`으로 실제 트리거 성공.
+vercel.json을 새로 만들었지만 허브·`/game/`·옛 주소 리다이렉트 모두 그대로 동작한다.
+
+### ⚠️ Google Drive 폴더에서 .git 저장소가 손상된다
+
+작업 중 `git commit`이 `error: invalid object ... for '.gitignore'` / `for 'eslint.config.js'` 로 실패했다.
+`git fsck` 결과 **여러 tree/blob이 통째로 사라져 있었다**(broken link 15건 이상).
+`.git/objects/` 의 해당 파일이 파일시스템에 없다.
+
+원인은 Google Drive 스트리밍 모드다. 클라우드에만 두고 로컬에서 파일을 비우는 방식이라
+`.git/objects/` 의 수많은 작은 파일과 충돌한다. `mv .git .git.broken` 조차 반영되지 않았고,
+정상 클론의 `.git`을 덮어써도 잠시 뒤 다시 객체가 사라졌다.
+
+**대처: 로컬 디스크(scratchpad)에 새로 clone해서 거기서 커밋·푸시·배포했다.**
+원격 main과 로컬 main이 `f604dc5`로 정확히 일치해 잃은 커밋은 없었다.
+
+**앞으로 이 레포에서 git 작업을 할 때는 Google Drive 폴더를 신뢰하지 말 것.**
+근본 해결은 저장소를 Google Drive 밖(예: `~/projects/golf-calculator`)으로 옮기거나,
+Google Drive에서 해당 폴더를 "오프라인 사용 가능"으로 고정하는 것이다.
+
+### 곁들여 — public 레포에 대화기록이 올라갈 뻔했다
+
+훅(CLAUDE.md 17항)이 만드는 `00_프롬프트/` 폴더가 `.gitignore`에 없어 `git add -A` 시
+공개 저장소에 커밋될 뻔했다. `.gitignore`에 추가했다. **이 레포는 PUBLIC이다.**

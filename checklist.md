@@ -71,3 +71,19 @@
 - [x] index.html: 탭 제목을 통합 앱 이름으로, lang을 ko로 수정
 - [x] 옛 주소 전 경로(`/`, `/game/`, `/js/app.js`, 임의 경로) 307 리다이렉트 확인
 - [x] 브라우저로 옛 주소 접근 → 통합 허브 표시 + 로그인 유지 확인
+
+# Supabase 자동 깨우기 (2026-09-04)
+
+계기: 2026-09-03 밤 접속 불가. Supabase가 미사용 7일 초과로 INACTIVE 상태였다.
+사용자 요청 — "자동깨우기 만들어줘. 컴퓨터가 꺼져있어도 가능하게."
+
+- [x] Supabase 프로젝트 수동 복원 (Management API restore → ACTIVE_HEALTHY)
+- [x] `api/keepalive.js` 작성 — PostgREST 경유 SELECT로 DB까지 도달
+- [x] `vercel.json` crons 추가 — 매일 03:00 UTC (Hobby 상한이 하루 1회)
+- [x] `tests/keepalive.test.mjs` 6개 작성, `npm test` 스크립트 추가 → 6 pass
+- [x] `.gitignore`에 `00_프롬프트/` 추가 (public 레포에 대화기록 유출 방지)
+- [x] 빌드 통과 + dist/game 유지 확인
+- [x] 배포 후 `/api/keepalive` → `{"ok":true,"status":200}` 확인
+- [x] `vercel crons ls`로 등록 확인, `vercel crons run`으로 실제 트리거 확인
+- [x] 허브·게임 화면, 옛 주소 리다이렉트 모두 안 깨진 것 확인
+- [ ] Google Drive 폴더의 손상된 .git 정리 (사용자 결정 대기)

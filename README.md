@@ -67,11 +67,38 @@ npm run build   # dist/ (dist/game/ 포함)
 - publishable key(`sb_publishable_...`)는 브라우저에 공개되는 것이 정상입니다.
   실제 방어선은 RLS이며, `service_role`/`secret` 키는 저장소에 절대 넣지 않습니다.
 
-### 주의 — 무료 플랜 자동 일시정지
+### 무료 플랜 자동 일시정지와 자동 깨우기
 
-1주간 요청이 없으면 프로젝트가 일시정지되고 두 앱 모두 로그인이 실패합니다.
-Supabase 대시보드에서 Resume하면 몇 분 뒤 복구됩니다.
-통합했으므로 **둘 중 하나만 써도 함께 살아있습니다.**
+무료 플랜은 7일간 요청이 없으면 프로젝트를 일시정지시키고, 그러면 두 앱 모두 로그인이 실패합니다.
+화면은 "불러오는 중..."에서 멈추고 Supabase 도메인은 DNS조차 잡히지 않습니다.
+
+이를 막기 위해 **매일 한 번 자동으로 DB를 깨우는 크론**이 돌고 있습니다.
+
+- `api/keepalive.js` — PostgREST를 거쳐 실제 DB까지 도달하는 SELECT 1건을 보냅니다.
+- `vercel.json`의 `crons` — 매일 03:00 UTC(한국 정오)에 호출합니다.
+  Hobby 플랜은 하루 1회가 상한이며, 7일 기준이라 이걸로 충분합니다.
+- Vercel 서버에서 도는 스케줄이라 **개발자 PC가 꺼져 있어도 동작합니다.**
+
+상태를 직접 보려면 https://golf-calculator-six.vercel.app/api/keepalive 를 열어보면 됩니다.
+`{"ok":true,...}` 가 나오면 정상입니다.
+
+```bash
+vercel crons ls              # 등록된 크론 확인
+vercel crons run /api/keepalive   # 지금 즉시 한 번 실행
+npm test                     # keepalive 분기별 단위 테스트
+```
+
+**이미 정지된 프로젝트는 크론으로 깨어나지 않습니다.** 크론은 정지되기 전에 막는 장치입니다.
+정지된 뒤에는 대시보드에서 수동 복원해야 합니다.
+
+- 대시보드: https://supabase.com/dashboard/project/cgkocnezpitydxrflxom → **Restore project**
+- 또는 Management API (토큰은 macOS 키체인의 `Supabase CLI` 항목에 있습니다)
+
+```bash
+curl -X POST "https://api.supabase.com/v1/projects/cgkocnezpitydxrflxom/restore" \
+  -H "Authorization: Bearer $(security find-generic-password -s 'Supabase CLI' -w)" \
+  -H "Content-Type: application/json" -d '{}'
+```
 
 ## 배포
 
