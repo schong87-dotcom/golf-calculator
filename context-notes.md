@@ -217,3 +217,32 @@ Google Drive에서 해당 폴더를 "오프라인 사용 가능"으로 고정하
 
 훅(CLAUDE.md 17항)이 만드는 `00_프롬프트/` 폴더가 `.gitignore`에 없어 `git add -A` 시
 공개 저장소에 커밋될 뻔했다. `.gitignore`에 추가했다. **이 레포는 PUBLIC이다.**
+
+### 결정 — 저장소는 Google Drive에 그대로 둔다 (2026-09-04)
+
+사용자 판단: "구글드라이버에 그대로 둘게. 여기 저기 있으면 복잡해져."
+폴더를 옮기지 않는 대신, 깨지면 아래 절차로 복구한다. **원격(GitHub)에 모든 커밋이 있으므로
+로컬 .git이 깨져도 잃는 것은 없다.** 커밋되지 않은 작업 파일만 조심하면 된다.
+
+**복구 절차 (git이 `invalid object` / `broken link`를 뱉을 때)**
+
+```bash
+GD="<이 폴더>"
+SCR=/tmp/golf-fresh                       # 로컬 디스크 어디든
+
+cp "$GD/.env" /tmp/env.backup             # 1. gitignore된 파일 백업 (.env 필수)
+git clone https://github.com/schong87-dotcom/golf-calculator.git "$SCR"   # 2. 성한 저장소 확보
+rm -rf "$GD/.git" && cp -R "$SCR/.git" "$GD/.git"                        # 3. .git 교체
+cd "$GD" && git reset --hard origin/main  # 4. 추적 파일을 원격 최신으로
+git fsck --no-dangling                    # 5. 이상 없으면 출력이 비어 있다
+npm test                                  # 6. 최종 확인
+```
+
+- 커밋·푸시가 그 폴더에서 계속 실패하면, 로컬 clone에서 커밋·푸시·배포하고
+  나중에 위 3~4단계로 Google Drive 폴더를 따라오게 하면 된다(2026-09-04에 그렇게 했다).
+- `reset --hard`는 추적 파일만 되돌린다. `.env`, `node_modules`, `dist`, `00_프롬프트/`는 건드리지 않는다.
+- 복구 후 `README 2.md`, `checklist 2.md` 같은 **Google Drive 충돌 사본**이 생길 수 있다.
+  전부 옛 버전이므로 현재 파일과 diff로 확인한 뒤 지운다.
+
+**예방**: Finder에서 이 폴더를 우클릭 → Google Drive 메뉴에서 **오프라인 액세스**를 켜두면
+로컬에 파일이 항상 유지되어 evict가 줄어든다. 다만 완전한 보장은 아니다.
