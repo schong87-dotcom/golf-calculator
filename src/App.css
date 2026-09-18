@@ -962,6 +962,9 @@ input::placeholder { color: #bbb; }
 .hub-card-game:hover { border-color: #2563eb; }
 .hub-card-game .hub-card-icon { background: #e5edfd; }
 
+.hub-card-reader:hover { border-color: #c77942; }
+.hub-card-reader .hub-card-icon { background: #f6e7da; color: #a55d2c; }
+
 .hub-card-icon {
   font-size: 30px;
   width: 54px;

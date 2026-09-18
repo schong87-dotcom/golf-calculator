@@ -1,4 +1,4 @@
-// 두 앱(골프 정산 · 재무제표 게임) 공통 진입점. 구글 OAuth 로그인 버튼만 제공한다.
+// 세 앱(골프 정산 · 재무제표 게임 · 이북리더기) 공통 진입점. 구글 OAuth 로그인 버튼만 제공한다.
 import { useState } from 'react';
 import { loginWithGoogle } from '../utils/storage';
 
@@ -22,7 +22,7 @@ export default function LoginPage() {
       <div className="login-header">
         <div className="logo dual">⛳📊</div>
         <h1>앱 모음</h1>
-        <p>골프 정산 · 재무제표 학습 게임</p>
+        <p>골프 정산 · 재무제표 학습 게임 · 이북리더기</p>
       </div>
       <div className="login-card">
         <h2>로그인</h2>

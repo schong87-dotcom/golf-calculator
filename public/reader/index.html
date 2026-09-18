@@ -1,0 +1,95 @@
+<!-- 스마트폰에서 텍스트와 Markdown 파일을 편하게 읽는 이북리더기 진입 화면. -->
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1d1c19">
+    <meta name="description" content="텍스트와 Markdown 파일을 편하게 읽는 이북리더기">
+    <title>이북리더기</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="reader-app">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <a class="brand" href="/" aria-label="앱 허브로 돌아가기">
+            <span class="brand-mark" aria-hidden="true">▧</span>
+            <span>이북리더기</span>
+          </a>
+          <div class="top-actions">
+            <label class="file-button">
+              <input id="file-input" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown">
+              <span aria-hidden="true">＋</span> 파일 열기
+            </label>
+            <button id="theme-toggle" class="icon-button" type="button" aria-label="다크모드로 전환" aria-pressed="false">
+              <span id="theme-icon" aria-hidden="true">☾</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="page-main">
+        <section class="reading-header" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">READING DESK</p>
+            <h1 id="page-title">읽고 싶은 파일을<br><em>여기서</em> 열어보세요.</h1>
+            <p class="page-intro">화면은 조용하게, 글은 편안하게.</p>
+          </div>
+          <div id="drop-zone" class="drop-zone" tabindex="0">
+            <span class="drop-icon" aria-hidden="true">↥</span>
+            <span>TXT 또는 MD 파일을 끌어놓기</span>
+          </div>
+        </section>
+
+        <section class="reader-card" aria-label="읽기 화면">
+          <div class="reader-card-bar">
+            <div class="file-meta">
+              <span class="file-type" id="file-type">SAMPLE</span>
+              <span id="file-name">환영합니다</span>
+              <span class="file-size" id="file-size">읽기 안내</span>
+            </div>
+            <button id="settings-toggle" class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-panel">
+              <span aria-hidden="true">☷</span> 보기 설정
+            </button>
+          </div>
+
+          <div id="settings-panel" class="settings-panel" hidden>
+            <div class="setting-group">
+              <span class="setting-label">글자 크기</span>
+              <div class="font-stepper" role="group" aria-label="글자 크기 조절">
+                <button id="font-decrease" class="step-button" type="button" aria-label="글자 크기 줄이기">−</button>
+                <output id="font-size-value" for="font-decrease font-increase">19px</output>
+                <button id="font-increase" class="step-button" type="button" aria-label="글자 크기 키우기">＋</button>
+              </div>
+            </div>
+            <div class="setting-group">
+              <span class="setting-label">글자 색</span>
+              <label class="color-input-label" for="text-color">
+                <input id="text-color" type="color" value="#2c2925" aria-label="글자 색 선택">
+                <span id="text-color-value">#2C2925</span>
+              </label>
+            </div>
+            <div class="setting-group setting-group-wide">
+              <span class="setting-label">라이트 배경</span>
+              <div class="paper-swatches" role="group" aria-label="라이트모드 배경색 선택">
+                <button class="paper-swatch is-selected" type="button" data-paper="#f7f4ed" aria-label="종이색 배경" aria-pressed="true"></button>
+                <button class="paper-swatch" type="button" data-paper="#f0f2ef" aria-label="안개색 배경" aria-pressed="false"></button>
+                <button class="paper-swatch" type="button" data-paper="#eef2f6" aria-label="청회색 배경" aria-pressed="false"></button>
+                <button class="paper-swatch" type="button" data-paper="#f3eee7" aria-label="모래색 배경" aria-pressed="false"></button>
+              </div>
+            </div>
+          </div>
+
+          <article id="reading-content" class="reading-content markdown-content" tabindex="0"></article>
+
+          <footer class="reader-footer">
+            <span id="reading-stats">읽기 안내</span>
+            <span>브라우저 안에서 안전하게 읽습니다.</span>
+          </footer>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

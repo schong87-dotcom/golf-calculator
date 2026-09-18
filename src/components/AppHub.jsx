@@ -1,5 +1,5 @@
 // 로그인 후 어떤 앱으로 들어갈지 고르는 허브 화면
-// 재무제표 게임은 같은 오리진의 정적 페이지(/game/)라 Supabase 세션이 그대로 이어진다.
+// 재무제표 게임과 이북리더기는 같은 오리진의 정적 페이지라 공통 배포 주소에서 바로 이어진다.
 export default function AppHub({ username, onSelectGolf, onLogout }) {
   return (
     <div className="hub-page">
@@ -13,7 +13,7 @@ export default function AppHub({ username, onSelectGolf, onLogout }) {
       <main className="hub-main">
         <div className="hub-intro">
           <h1>어떤 앱을 여시겠어요?</h1>
-          <p>한 번 로그인하면 두 앱 모두 그대로 이어집니다</p>
+          <p>필요한 도구를 골라 바로 시작하세요</p>
         </div>
 
         <div className="hub-cards">
@@ -31,6 +31,15 @@ export default function AppHub({ username, onSelectGolf, onLogout }) {
             <span className="hub-card-body">
               <span className="hub-card-title">재무제표 학습 게임</span>
               <span className="hub-card-desc">손익계산서·재무상태표 순서를 드래그로 익힙니다</span>
+            </span>
+            <span className="hub-card-arrow">›</span>
+          </a>
+
+          <a className="hub-card hub-card-reader" href="/reader/">
+            <span className="hub-card-icon">▧</span>
+            <span className="hub-card-body">
+              <span className="hub-card-title">이북리더기</span>
+              <span className="hub-card-desc">TXT와 Markdown 파일을 내 눈에 맞게 읽습니다</span>
             </span>
             <span className="hub-card-arrow">›</span>
           </a>
