@@ -1,16 +1,14 @@
 import { formatNumber } from '../utils/settlement';
-
-const COLORS = ['#4caf50', '#2196f3', '#ff9800', '#f44336'];
-const BG_COLORS = ['#e8f5e9', '#e3f2fd', '#fff3e0', '#ffebee'];
+import { colorAt, bgColorAt } from '../utils/palette';
 
 function getParticipantColor(name, participants) {
   const idx = participants.indexOf(name);
-  return idx >= 0 ? COLORS[idx] : '#888';
+  return idx >= 0 ? colorAt(idx) : '#888';
 }
 
 function getParticipantBg(name, participants) {
   const idx = participants.indexOf(name);
-  return idx >= 0 ? BG_COLORS[idx] : '#f5f5f5';
+  return idx >= 0 ? bgColorAt(idx) : '#f5f5f5';
 }
 
 function Avatar({ name, participants }) {

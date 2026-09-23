@@ -63,8 +63,8 @@ export default function CostItem({ item, participants, onChange, onDelete }) {
               <p className="hint">먼저 참가자 이름을 입력해주세요</p>
             ) : (
               <div className="checker-list">
-                {named.map(name => (
-                  <label key={name} className="checker-item">
+                {named.map((name, i) => (
+                  <label key={`${i}-${name}`} className="checker-item">
                     <input
                       type="checkbox"
                       checked={item.payers.includes(name)}
@@ -82,8 +82,8 @@ export default function CostItem({ item, participants, onChange, onDelete }) {
               <p className="hint">먼저 참가자 이름을 입력해주세요</p>
             ) : (
               <div className="checker-list">
-                {named.map(name => (
-                  <label key={name} className="checker-item">
+                {named.map((name, i) => (
+                  <label key={`${i}-${name}`} className="checker-item">
                     <input
                       type="checkbox"
                       checked={item.excluded.includes(name)}

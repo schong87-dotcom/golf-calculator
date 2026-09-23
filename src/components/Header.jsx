@@ -1,4 +1,7 @@
-export default function Header({ onSave, onReset, onLogout, onOpenHistory, onBackToHub, canSave }) {
+export default function Header({
+  onSave, onReset, onLogout, onOpenHistory, onBackToHub, canSave,
+  logo = '⛳', title = '골프 정산', subtitle = '라운드 비용 계산기',
+}) {
   return (
     <header className="app-header">
       <div className="header-inner">
@@ -16,10 +19,10 @@ export default function Header({ onSave, onReset, onLogout, onOpenHistory, onBac
         </div>
 
         <div className="header-title">
-          <span className="header-logo">⛳</span>
+          <span className="header-logo">{logo}</span>
           <div>
-            <h1>골프 정산</h1>
-            <p>라운드 비용 계산기</p>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
           </div>
         </div>
 
