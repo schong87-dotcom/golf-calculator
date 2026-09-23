@@ -25,6 +25,13 @@
     return { total, bestSec };
   }
 
+  // 비회원(익명 계정)은 로그아웃하면 다시 들어올 수 없어 기록도 함께 잃는다
+  function logoutMessage(user) {
+    return user.isGuest
+      ? '비회원은 로그아웃하면 지금까지 저장한 기록을 다시 볼 수 없습니다. 그래도 로그아웃할까요?'
+      : '정말 로그아웃 하시겠어요?';
+  }
+
   // --- 모드 선택 화면 ---
   function renderModes() {
     const user = Auth.getUser();
@@ -94,7 +101,7 @@
     document.getElementById('btn-logout').addEventListener('click', () => {
       UI.modal({
         title: '로그아웃',
-        message: '정말 로그아웃 하시겠어요?',
+        message: logoutMessage(user),
         buttons: [
           { label: '취소', variant:'secondary' },
           { label: '로그아웃', variant:'primary', onClick: async () => { await Auth.signOut(); location.replace(HUB_URL); } },
@@ -186,7 +193,7 @@
     document.getElementById('btn-logout').addEventListener('click', () => {
       UI.modal({
         title: '로그아웃',
-        message: '정말 로그아웃 하시겠어요?',
+        message: logoutMessage(user),
         buttons: [
           { label: '취소', variant:'secondary' },
           { label: '로그아웃', variant:'primary', onClick: async () => { await Auth.signOut(); location.replace(HUB_URL); } },

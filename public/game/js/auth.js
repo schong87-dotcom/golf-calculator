@@ -1,4 +1,4 @@
-// 허브(/)에서 만든 구글 세션을 읽어 쓰고 게임 기록을 Supabase에 저장 (화면 코드가 쓰는 공개 API는 동기 시그니처 유지)
+// 허브(/)에서 만든 세션(구글 또는 비회원)을 읽어 쓰고 게임 기록을 Supabase에 저장 (화면 코드가 쓰는 공개 API는 동기 시그니처 유지)
 // 로그인 화면은 허브에만 있다. 이 파일은 세션을 만들지 않고 복원만 한다.
 (function(){
   let sb = null;         // supabase 클라이언트
@@ -13,11 +13,13 @@
     return sb;
   }
 
+  // 허브의 「비회원으로 입장하기」는 익명 계정을 만든다. 이름·이메일이 없으므로 '비회원'으로 표시한다.
   function userFromSession(s) {
     if (!s || !s.user) return null;
+    const isGuest = !!s.user.is_anonymous;
     const meta = s.user.user_metadata || {};
-    const name = meta.full_name || meta.name || (s.user.email || '').split('@')[0];
-    return { name, id: s.user.id };
+    const name = isGuest ? '비회원' : (meta.full_name || meta.name || (s.user.email || '').split('@')[0]);
+    return { name, id: s.user.id, isGuest };
   }
 
   // 현재 사용자의 전체 기록을 읽어 메모리 캐시에 적재. RLS가 본인 행만 돌려준다.

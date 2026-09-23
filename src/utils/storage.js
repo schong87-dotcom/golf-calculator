@@ -11,18 +11,28 @@ export async function loginWithGoogle() {
   return { success: true }
 }
 
+// 비회원 입장 = Supabase 익명 로그인. 이메일 없는 임시 계정이 생기고 세션이 이 브라우저에 남는다.
+// RLS가 auth.uid() 기준이라 비회원도 자기 기록만 저장·조회한다. 로그아웃하면 그 계정으로 다시 들어올 방법이 없다.
+export async function loginAsGuest() {
+  const { error } = await supabase.auth.signInAnonymously()
+  if (error) return { success: false, message: error.message }
+  return { success: true }
+}
+
 export async function logout() {
   await supabase.auth.signOut()
 }
 
 // 로그인/로그아웃/OAuth 리다이렉트 복귀를 모두 이 구독으로 감지한다.
-// callback은 로그인 시 { username }, 로그아웃 시 null을 받는다.
+// callback은 로그인 시 { username, isGuest }, 로그아웃 시 null을 받는다.
 export function onAuthChange(callback) {
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     if (!session) return callback(null)
+    // 익명 계정은 이름·이메일이 없어 username이 비면 로그인 화면에서 넘어가지 못한다
+    const isGuest = !!session.user.is_anonymous
     const meta = session.user.user_metadata || {}
-    const username = meta.full_name || meta.name || session.user.email?.split('@')[0]
-    callback({ username })
+    const username = isGuest ? '비회원' : (meta.full_name || meta.name || session.user.email?.split('@')[0])
+    callback({ username, isGuest })
   })
   return () => subscription.unsubscribe()
 }

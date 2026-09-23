@@ -36,6 +36,7 @@ function makeDefaultRound() {
 
 export default function App() {
   const [username, setUsername] = useState(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
   // 로그인 후 어떤 앱을 보여줄지. 재무제표 게임은 /game/ 정적 페이지라 여기 들어오지 않는다.
   const [view, setView] = useState('hub');
@@ -51,6 +52,7 @@ export default function App() {
     return onAuthChange(session => {
       if (session) {
         setUsername(session.username);
+        setIsGuest(session.isGuest);
         if (!roundLoadedRef.current) {
           roundLoadedRef.current = true;
           loadRound().then(saved => {
@@ -66,6 +68,8 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
+    // 비회원 계정은 로그아웃하면 다시 들어올 수 없어 저장한 기록도 함께 잃는다
+    if (isGuest && !window.confirm('비회원은 로그아웃하면 지금까지 저장한 기록을 다시 불러올 수 없습니다.\n그래도 로그아웃할까요?')) return;
     await logout();
     setUsername(null);
     setView('hub');
