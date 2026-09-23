@@ -965,6 +965,9 @@ input::placeholder { color: #bbb; }
 .hub-card-reader:hover { border-color: #c77942; }
 .hub-card-reader .hub-card-icon { background: #f6e7da; color: #a55d2c; }
 
+.hub-card-meeting:hover { border-color: #8e5bd0; }
+.hub-card-meeting .hub-card-icon { background: #f0e8fa; }
+
 .hub-card-icon {
   font-size: 30px;
   width: 54px;
@@ -1011,3 +1014,25 @@ input::placeholder { color: #bbb; }
   .hub-card-title { font-size: 16px; }
   .hub-card-desc { font-size: 12px; }
 }
+
+/* ─── 모임 정산: 참가자 칸 라벨 옆 삭제(×) 버튼, 겹치는 이름 경고 ─── */
+.participant-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.btn-remove-participant {
+  background: none;
+  border: none;
+  color: #bbb;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.btn-remove-participant:hover { color: #e53935; background: #ffebee; }
+
+.participant-warning { margin: 12px 0 0; }

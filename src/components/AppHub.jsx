@@ -1,6 +1,6 @@
 // 로그인 후 어떤 앱으로 들어갈지 고르는 허브 화면
 // 재무제표 게임과 이북리더기는 같은 오리진의 정적 페이지라 공통 배포 주소에서 바로 이어진다.
-export default function AppHub({ username, onSelectGolf, onLogout }) {
+export default function AppHub({ username, onSelectGolf, onSelectMeeting, onLogout }) {
   return (
     <div className="hub-page">
       <header className="hub-header">
@@ -22,6 +22,15 @@ export default function AppHub({ username, onSelectGolf, onLogout }) {
             <span className="hub-card-body">
               <span className="hub-card-title">골프 정산</span>
               <span className="hub-card-desc">라운드 비용을 참가자별로 나눠 정산합니다</span>
+            </span>
+            <span className="hub-card-arrow">›</span>
+          </button>
+
+          <button type="button" className="hub-card hub-card-meeting" onClick={onSelectMeeting}>
+            <span className="hub-card-icon">🧾</span>
+            <span className="hub-card-body">
+              <span className="hub-card-title">모임 정산</span>
+              <span className="hub-card-desc">인원 제한 없이 모임 비용을 나눠 정산합니다</span>
             </span>
             <span className="hub-card-arrow">›</span>
           </button>

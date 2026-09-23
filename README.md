@@ -1,6 +1,6 @@
-# 앱 모음 — 골프 정산 · 재무제표 학습 게임 · 이북리더기
+# 앱 모음 — 골프 정산 · 모임 정산 · 재무제표 학습 게임 · 이북리더기
 
-구글 로그인 한 번으로 세 개의 앱을 쓰는 통합 웹앱입니다.
+구글 로그인 한 번으로 네 개의 앱을 쓰는 통합 웹앱입니다.
 Supabase 무료 플랜의 프로젝트 개수 제한 때문에 원래 따로 있던 두 앱을
 **Supabase 프로젝트 1개 + 배포 도메인 1개**로 합쳤습니다.
 
@@ -11,11 +11,12 @@ Supabase 무료 플랜의 프로젝트 개수 제한 때문에 원래 따로 있
 ```
 /            로그인(구글) → 앱 선택 허브
   ├─ 골프 정산      React 화면 전환 (같은 페이지 안)
+  ├─ 모임 정산      React 화면 전환 (같은 페이지 안) — 인원 가변, 항목명 직접 입력
   └─ 재무제표 게임   /game/ 으로 이동
   └─ 이북리더기      /reader/ 로 이동
 ```
 
-세 앱은 **같은 오리진**에 있습니다. Supabase 세션은 브라우저 localStorage에
+네 앱은 **같은 오리진**에 있습니다. Supabase 세션은 브라우저 localStorage에
 오리진 단위로 저장되므로, 도메인을 하나로 합쳐야 한 번의 로그인이 양쪽에 모두 적용됩니다.
 Supabase 프로젝트 ref가 같으니 세션 키(`sb-<ref>-auth-token`)도 자동으로 일치합니다.
 
@@ -29,10 +30,14 @@ Supabase 프로젝트 ref가 같으니 세션 키(`sb-<ref>-auth-token`)도 자�
 │   ├── components/
 │   │   ├── LoginPage.jsx   #   구글 로그인 (두 앱 공통 진입점)
 │   │   ├── AppHub.jsx      #   앱 선택 화면
+│   │   ├── MeetingApp.jsx  #   모임 정산 화면 (Meeting*.jsx 는 모임 전용 카드)
 │   │   └── ...
 │   └── utils/
 │       ├── supabase.js     #   .env의 URL/키로 클라이언트 생성
-│       └── storage.js      #   인증 + 라운드 저장
+│       ├── storage.js      #   인증 + 라운드 저장
+│       ├── meeting.js      #   모임: 인원 추가·삭제·이름 수정 규칙 (순수 함수)
+│       ├── meetingStorage.js # 모임: 작업본·저장 목록 저장
+│       └── settlement.js   #   정산 계산 (골프·모임 공용)
 ├── public/game/            # 재무제표 학습 게임 (바닐라 JS, 빌드 없음)
 │   ├── index.html          #   CDN Tailwind + CDN supabase-js
 │   └── js/
@@ -40,7 +45,8 @@ Supabase 프로젝트 ref가 같으니 세션 키(`sb-<ref>-auth-token`)도 자�
 │       ├── auth.js         #   허브가 만든 세션을 복원만 함 (로그인 화면 없음)
 │       └── ...
 ├── public/reader/          # 이북리더기 배포본 (TXT·Markdown 정적 앱)
-├── supabase-schema.sql     # 골프 테이블 (current_round, rounds)
+├── supabase-schema.sql     # 골프·모임 테이블 (current_round, rounds, current_meeting, meetings)
+├── tests/                  # 단위 테스트(node --test) + tests/e2e/ 브라우저 테스트(Playwright)
 └── vite.config.js          # dev 서버에서 /game/ → /game/index.html 재작성
 ```
 
@@ -53,14 +59,18 @@ Supabase 프로젝트 ref가 같으니 세션 키(`sb-<ref>-auth-token`)도 자�
 npm install
 npm run dev     # http://localhost:5173/
 npm run build   # dist/ (dist/game/ 포함)
+npm test        # 단위 테스트 (keepalive, 모임 정산 모델·정산 계산)
+npm run test:e2e  # 브라우저 테스트 — Supabase를 가짜로 대체하므로 실제 DB에 쓰지 않음
 ```
 
 ## Supabase
 
 - 프로젝트 ref: `cgkocnezpitydxrflxom` (이름 `finance-statement-game`, 서울 리전)
-- 테이블 3개가 한 프로젝트에 있고, 모두 RLS로 **본인 행만** 접근합니다.
+- 테이블 5개가 한 프로젝트에 있고, 모두 RLS로 **본인 행만** 접근합니다.
   - `current_round` — 골프: 작업 중인 라운드 (사용자당 1행)
   - `rounds` — 골프: 저장된 라운드 히스토리
+  - `current_meeting` — 모임: 작업 중인 모임 (사용자당 1행)
+  - `meetings` — 모임: 저장된 모임 히스토리
   - `game_records` — 게임: 게임별 기록
 - 로그인은 **구글 OAuth 하나**입니다. 게임에 있던 이름+비밀번호 로그인은 통합하면서 제거했습니다.
 - 접속 정보가 두 군데에 있습니다. 프로젝트를 옮길 때는 **둘 다** 바꿔야 합니다.

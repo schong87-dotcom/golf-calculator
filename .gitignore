@@ -5,3 +5,5 @@ dist
 .DS_Store
 .vercel
 00_프롬프트/
+test-results/
+playwright-report/

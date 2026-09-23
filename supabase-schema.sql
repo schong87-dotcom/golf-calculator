@@ -29,3 +29,37 @@ create policy "own rounds" on rounds
   with check (auth.uid() = user_id);
 
 create index if not exists rounds_user_saved on rounds (user_id, saved_at desc);
+
+-- ─── 모임 정산 ───────────────────────────────────────────────────────────────
+
+-- 현재 작업 중인 모임 (사용자당 1개)
+create table if not exists current_meeting (
+  user_id uuid references auth.users on delete cascade primary key,
+  data    jsonb not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+alter table current_meeting enable row level security;
+
+create policy "own current_meeting" on current_meeting
+  for all using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- 저장된 모임 히스토리
+create table if not exists meetings (
+  id           uuid default gen_random_uuid() primary key,
+  user_id      uuid references auth.users on delete cascade not null,
+  meeting_date text,
+  title        text,
+  participants text[]  not null default '{}',
+  items        jsonb    not null default '[]',
+  saved_at     timestamptz not null default now()
+);
+
+alter table meetings enable row level security;
+
+create policy "own meetings" on meetings
+  for all using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create index if not exists meetings_user_saved on meetings (user_id, saved_at desc);

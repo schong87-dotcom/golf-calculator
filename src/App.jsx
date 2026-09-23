@@ -7,6 +7,7 @@ import Participants from './components/Participants';
 import CostItems from './components/CostItems';
 import SettlementResult from './components/SettlementResult';
 import HistoryModal from './components/HistoryModal';
+import MeetingApp from './components/MeetingApp';
 import {
   onAuthChange, logout,
   saveRound, loadRound,
@@ -145,9 +146,14 @@ export default function App() {
       <AppHub
         username={username}
         onSelectGolf={() => setView('golf')}
+        onSelectMeeting={() => setView('meeting')}
         onLogout={handleLogout}
       />
     );
+  }
+
+  if (view === 'meeting') {
+    return <MeetingApp onBackToHub={() => setView('hub')} onLogout={handleLogout} />;
   }
 
   return (
