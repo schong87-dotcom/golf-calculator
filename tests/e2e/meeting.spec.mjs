@@ -1,93 +1,7 @@
 // 모임 정산 화면을 실제 브라우저로 조작해 요구사항(인원 추가, 빈 항목, 결제·제외 체크 정산, 저장)을 검증한다
-// Supabase는 page.route로 가로채 가짜 세션·가짜 DB로 대체한다. 실제 서버로는 요청이 한 건도 나가지 않는다.
+// Supabase는 fake-supabase.mjs가 가짜 세션·가짜 DB로 대체한다. 실제 서버로는 요청이 한 건도 나가지 않는다.
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
-
-function supabaseUrl() {
-  if (process.env.VITE_SUPABASE_URL) return process.env.VITE_SUPABASE_URL;
-  const env = readFileSync(new URL('../../.env', import.meta.url), 'utf8');
-  return env.match(/^VITE_SUPABASE_URL=(.+)$/m)[1].trim().replace(/^["']|["']$/g, '');
-}
-
-const SUPA = supabaseUrl();
-const STORAGE_KEY = `sb-${new URL(SUPA).hostname.split('.')[0]}-auth-token`;
-const USER = {
-  id: '00000000-0000-4000-8000-000000000001',
-  aud: 'authenticated',
-  role: 'authenticated',
-  email: 'tester@example.com',
-  user_metadata: { full_name: '테스트 사용자' },
-  app_metadata: { provider: 'google' },
-  created_at: '2026-09-24T00:00:00Z',
-};
-
-function fakeSession() {
-  const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
-  const exp = Math.floor(Date.now() / 1000) + 24 * 3600;
-  return {
-    access_token: `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: USER.id, exp, role: 'authenticated' })}.sig`,
-    token_type: 'bearer',
-    expires_in: 24 * 3600,
-    expires_at: exp,
-    refresh_token: 'fake-refresh-token',
-    user: USER,
-  };
-}
-
-const CORS = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': '*',
-  'access-control-allow-methods': '*',
-};
-
-// 테이블별 행을 메모리에 들고 PostgREST 흉내를 낸다. 테스트는 db를 직접 들여다본다.
-async function mockSupabase(page) {
-  const db = { current_round: [], rounds: [], current_meeting: [], meetings: [] };
-  let seq = 0;
-  const reply = (route, status, body) =>
-    route.fulfill({
-      status,
-      headers: { ...CORS, 'content-type': 'application/json' },
-      body: body === undefined ? '' : JSON.stringify(body),
-    });
-
-  await page.route(`${SUPA}/**`, async route => {
-    const req = route.request();
-    const url = new URL(req.url());
-    const method = req.method();
-    if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-    if (url.pathname === '/auth/v1/user') return reply(route, 200, USER);
-
-    const table = url.pathname.match(/^\/rest\/v1\/(\w+)$/)?.[1];
-    if (!table || !(table in db)) return route.abort();
-    const body = req.postData() ? JSON.parse(req.postData()) : null;
-    const idFilter = url.searchParams.get('id')?.replace(/^eq\./, '');
-
-    if (method === 'GET') {
-      const rows = [...db[table]].sort((a, b) => String(b.saved_at).localeCompare(String(a.saved_at)));
-      return reply(route, 200, rows);
-    }
-    if (method === 'POST' && table.startsWith('current_')) {
-      db[table] = [Array.isArray(body) ? body[0] : body];
-      return reply(route, 201);
-    }
-    if (method === 'POST') {
-      const row = { ...(Array.isArray(body) ? body[0] : body), id: `row-${++seq}` };
-      db[table].push(row);
-      return reply(route, 201, [row]);
-    }
-    if (method === 'PATCH') {
-      db[table] = db[table].map(r => (r.id === idFilter ? { ...r, ...body } : r));
-      return reply(route, 200, db[table].filter(r => r.id === idFilter));
-    }
-    if (method === 'DELETE') {
-      db[table] = db[table].filter(r => r.id !== idFilter);
-      return reply(route, 204);
-    }
-    return route.abort();
-  });
-  return db;
-}
+import { USER, mockSupabase, seedSession } from './fake-supabase.mjs';
 
 async function openMeeting(page) {
   await page.getByRole('button', { name: /모임 정산/ }).click();
@@ -130,7 +44,7 @@ let db;
 
 test.beforeEach(async ({ page }) => {
   db = await mockSupabase(page);
-  await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [STORAGE_KEY, JSON.stringify(fakeSession())]);
+  await seedSession(page);
   page.on('dialog', d => d.accept());
   await page.goto('/');
 });
