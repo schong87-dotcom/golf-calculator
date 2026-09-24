@@ -305,3 +305,32 @@ insert/upsert/update/delete를 해 보고, 마지막에 `raise exception`으로 
 
 - 골프 `saveRound`에도 같은 저장 직렬화를 넣을지.
 - 폰 폭(390px)에서 송금 내역의 세 글자 이름이 두 줄로 꺾인다(「박지/훈」). 골프와 공용 스타일이라 그대로 둠.
+
+## 2026-09-24 비회원으로 입장하기
+
+### 결정 — Supabase 익명 로그인을 쓴다 (로컬 저장 분기가 아니다)
+
+비회원을 「로그인 없이 localStorage에만 저장」으로 만들면 골프·모임·게임의 저장 코드마다 분기가 필요하고,
+게임은 세션이 없으면 허브로 돌려보낸다. 익명 로그인은 **진짜 세션과 uid를 만들어 주므로** 기존 코드·RLS·
+허브↔게임 세션 공유가 전부 그대로 돈다. 바꾼 것은 버튼, 이름 표시, 로그아웃 경고뿐이다.
+
+### 함정 — 익명 계정은 username이 비어 로그인 화면에 갇힌다
+
+`onAuthChange`가 이름을 `full_name → name → email 앞부분`으로 만들었는데 익명 계정은 셋 다 없다.
+App은 `if (!username) return <LoginPage />`라서, 세션은 생겼는데 화면은 로그인에 머문다.
+`session.user.is_anonymous`로 판정해 '비회원'을 넣었다. 게임 `auth.js`도 같은 처리.
+
+### 비회원의 한계 (사용자에게 설명할 것)
+
+- 세션이 그 브라우저 localStorage에만 있다. 다른 기기·다른 브라우저에서는 새 비회원이 된다.
+- 로그아웃하면(signOut은 refresh token을 폐기) 그 익명 계정으로 돌아올 수 없다 → 비회원 로그아웃에만 경고.
+- 버려진 익명 계정과 기록은 DB에 남는다. 쌓이면 `delete from auth.users where is_anonymous and created_at < …`로
+  지우면 된다(모든 테이블이 `on delete cascade`라 기록도 같이 지워진다). 지금은 자동 정리를 두지 않았다.
+- 남용 방지는 Supabase 기본 한도(IP당 시간당 익명 가입 30회)뿐이다. 문제가 생기면 CAPTCHA를 켠다.
+- 비회원 → 구글 계정으로 옮기기(`linkIdentity`)는 만들지 않았다. 요청이 오면 그때.
+
+### 운영 확인 방법
+
+크롬 확장이 없어도 Playwright로 운영 주소를 직접 눌러 확인할 수 있다(실제 익명 계정이 생긴다).
+확인 뒤 `delete from auth.users where id = '<uid>' and is_anonymous`로 지우면 기록까지 연쇄 삭제된다.
+구글 로그인은 버튼을 눌러 `accounts.google.com`으로 넘어가는 것까지만 확인했다(실제 로그인은 하지 않음).
