@@ -403,3 +403,41 @@ test('memo syncs to google drive folder', async ({ page }) => {
   expect(memoFile.content).toContain(`> ${marked}`);
   expect([...files.values()]).toHaveLength(2);
 });
+
+test('icloud button shares the memo file', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__shared = [];
+    navigator.canShare = data => Boolean(data?.files?.length);
+    navigator.share = async data => {
+      const [file] = data.files;
+      window.__shared.push({ name: file.name, type: file.type, text: await file.text() });
+    };
+  });
+  await openBook(page);
+  await slowDrag(page, await visibleTextSpan(page, '#reading-content'));
+  const dialog = page.locator('#memo-dialog');
+  await dialog.getByLabel('내 생각').fill('아이클라우드로 가는 생각');
+  await dialog.getByRole('button', { name: '아이클라우드에 저장' }).click();
+  await expect.poll(() => page.evaluate(() => window.__shared.length)).toBe(1);
+  const [shared] = await page.evaluate(() => window.__shared);
+  const marked = (await page.locator('#reading-content mark.memo-mark').textContent()).trim();
+  expect(shared.name).toBe('메모_재무제표 쉽게 읽기.md');
+  expect(shared.text).toContain(`> ${marked}`);
+  expect(shared.text).toContain('아이클라우드로 가는 생각');
+});
+
+test('icloud button falls back to a download', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.canShare = () => false;
+  });
+  await openBook(page);
+  await slowDrag(page, await visibleTextSpan(page, '#reading-content'));
+  const dialog = page.locator('#memo-dialog');
+  await dialog.getByLabel('내 생각').fill('다운로드로 가는 생각');
+  const downloading = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: '아이클라우드에 저장' }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename().normalize('NFC')).toBe('메모_재무제표 쉽게 읽기.md');
+  const text = readFileSync(await download.path(), 'utf8');
+  expect(text).toContain('다운로드로 가는 생각');
+});

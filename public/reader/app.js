@@ -4,6 +4,7 @@ import {
   FULL_SWIPE_MS,
   TAP_SLOP,
   bookTitle,
+  buildMemoMarkdown,
   clamp,
   classifyGesture,
   describeTextLocation,
@@ -715,21 +716,22 @@ function renderDriveStatus() {
   let text;
   let canConnect = false;
   if (!GOOGLE_CLIENT_ID) {
-    text = '메모는 이 기기(브라우저)에 저장됩니다. 구글 드라이브 저장은 아직 설정되지 않았습니다.';
+    text = '저장 위치 — 이 기기(브라우저). 구글 드라이브 저장은 아직 설정되지 않았습니다.';
   } else if (!validToken()) {
-    text = drive.message || '메모는 이 기기에 저장됐습니다. 드라이브에도 남기려면 연결하세요.';
+    text = drive.message || '저장 위치 — 이 기기(브라우저). 구글 드라이브에도 남기려면 연결하세요.';
     canConnect = true;
   } else if (drive.status === 'saving') {
-    text = '드라이브에 저장 중…';
+    text = '저장 위치 — 이 기기 · 구글 드라이브에 저장 중…';
   } else if (drive.status === 'error') {
     text = drive.message;
   } else if (drive.status === 'saved') {
-    text = `드라이브에 저장됨 · ${fileName}`;
+    text = `저장 위치 — 이 기기 · 구글 드라이브에 저장됨 (${fileName})`;
   } else {
-    text = `드라이브 연결됨 · ${fileName}`;
+    text = `저장 위치 — 이 기기 · 구글 드라이브 연결됨 (${fileName})`;
   }
   document.querySelectorAll('[data-drive-status]').forEach(node => { node.textContent = text; });
   document.querySelectorAll('[data-drive-connect]').forEach(node => { node.hidden = !canConnect; });
+  document.querySelectorAll('[data-icloud-save]').forEach(node => { node.hidden = !state.bookId || !visibleMemos().length; });
   document.querySelectorAll('[data-drive-link]').forEach(node => {
     node.hidden = !(validToken() && state.driveFileId);
     if (state.driveFileId) node.href = `https://drive.google.com/file/d/${state.driveFileId}/view`;
@@ -760,6 +762,41 @@ function connectDrive() {
     error_callback: () => setDriveStatus('error', '구글 로그인 창이 닫혔습니다. 메모는 이 기기에 남아 있습니다.'),
   });
   client.requestAccessToken();
+}
+
+// 아이클라우드 드라이브는 웹앱이 직접 쓸 수 있는 공개 API가 없다.
+// 공유 창을 열어 「파일에 저장」 → iCloud Drive 폴더를 고르게 하고, 공유 창이 없으면 내려받기로 대신한다.
+function saveToICloud() {
+  if (!state.bookId) return;
+  updateThought();
+  const title = bookTitle(state.fileName);
+  const markdown = buildMemoMarkdown({
+    title,
+    fileName: state.fileName,
+    bookId: state.bookId,
+    memos: state.memos,
+    now: Date.now(),
+  });
+  const name = memoFileName(title);
+  const file = new File([markdown], name, { type: 'text/markdown' });
+  if (navigator.canShare?.({ files: [file] })) {
+    navigator.share({ files: [file], title: name }).catch(error => {
+      if (error?.name !== 'AbortError') downloadFile(file);
+    });
+    return;
+  }
+  downloadFile(file);
+}
+
+function downloadFile(file) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 let syncTimer = null;
@@ -1084,6 +1121,7 @@ elements.memoDialog.addEventListener('close', () => {
 });
 closeOnBackdrop(elements.memoDialog);
 document.querySelectorAll('[data-drive-connect]').forEach(button => button.addEventListener('click', connectDrive));
+document.querySelectorAll('[data-icloud-save]').forEach(button => button.addEventListener('click', saveToICloud));
 
 elements.resumeYes.addEventListener('click', () => {
   elements.resumeDialog.close();

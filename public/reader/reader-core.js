@@ -228,7 +228,7 @@ export function classifyGesture({ dx, dy, duration, releaseSpeed = 0, width, sta
 }
 
 export function bookTitle(fileName = '') {
-  return String(fileName).replace(/\.[^.]+$/, '') || '제목 없음';
+  return String(fileName).normalize('NFC').replace(/\.[^.]+$/, '') || '제목 없음';
 }
 
 export function memoFileName(title) {
