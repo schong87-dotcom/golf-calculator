@@ -44,7 +44,7 @@ Supabase 프로젝트 ref가 같으니 세션 키(`sb-<ref>-auth-token`)도 자�
 │       ├── supabase-config.js  # 게임 쪽 Supabase 접속 정보 (하드코딩)
 │       ├── auth.js         #   허브가 만든 세션을 복원만 함 (로그인 화면 없음)
 │       └── ...
-├── public/reader/          # 이북리더기 배포본 (TXT·Markdown 정적 앱)
+├── public/reader/          # 이북리더기 배포본 (TXT·MD·PDF, 쪽 넘김·목차·메모 — 원본은 AI스터디/2026-09-18_이북리더기)
 ├── supabase-schema.sql     # 골프·모임 테이블 (current_round, rounds, current_meeting, meetings)
 ├── tests/                  # 단위 테스트(node --test) + tests/e2e/ 브라우저 테스트(Playwright)
 └── vite.config.js          # dev 서버에서 /game/ → /game/index.html 재작성
@@ -61,6 +61,7 @@ npm run dev     # http://localhost:5173/
 npm run build   # dist/ (dist/game/ 포함)
 npm test        # 단위 테스트 (keepalive, 모임 정산 모델·정산 계산)
 npm run test:e2e  # 브라우저 테스트 — Supabase를 가짜로 대체하므로 실제 DB에 쓰지 않음
+                  # 이북리더기는 tests/e2e/reader.spec.mjs (구글 드라이브·GIS도 가짜로 대체)
 ```
 
 ## Supabase

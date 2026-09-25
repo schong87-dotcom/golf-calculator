@@ -334,3 +334,15 @@ App은 `if (!username) return <LoginPage />`라서, 세션은 생겼는데 화�
 크롬 확장이 없어도 Playwright로 운영 주소를 직접 눌러 확인할 수 있다(실제 익명 계정이 생긴다).
 확인 뒤 `delete from auth.users where id = '<uid>' and is_anonymous`로 지우면 기록까지 연쇄 삭제된다.
 구글 로그인은 버튼을 눌러 `accounts.google.com`으로 넘어가는 것까지만 확인했다(실제 로그인은 하지 않음).
+
+## 2026-09-25 이북리더기 확장 (PDF·쪽 넘김·목차·이어 읽기·메모·드라이브)
+
+- 원본과 결정 기록은 `AI스터디/2026-09-18_이북리더기`(README·context-notes)에 있다. 여기에는 배포본과 E2E만 있다.
+- E2E `tests/e2e/reader.spec.mjs` — 폰 폭(390×844, 터치). PDF는 `fixtures/reader-sample.pdf`(PyMuPDF로 만든 한글 3쪽, 책갈피 3개,
+  비내장 CJK 글꼴이라 pdf.js의 CMap 로딩까지 시험됨). 다시 만들려면 `python3 tests/e2e/fixtures/make_reader_pdf.py`.
+- pdf.js는 jsDelivr CDN에서 받는다. 그래서 E2E도 인터넷이 있어야 PDF 테스트가 통과한다.
+- 구글 드라이브·GIS는 `page.route`로 가짜 처리한다. `drive-config.js`도 가짜 Client ID로 바꿔치기한다.
+- 사파리 엔진 확인은 `npx playwright install webkit` 후 webkit 프로젝트로 돌렸다(설정 파일은 커밋하지 않음). 10 통과, 터치 드래그 1개는 CDP 전용이라 건너뜀.
+- clone에는 `.env`가 없어 기존 골프·모임 E2E가 `readFileSync('.env')`에서 멈춘다. 이 테스트들은 Supabase를 전부 가짜로 대체하므로
+  `VITE_SUPABASE_URL=https://cgkocnezpitydxrflxom.supabase.co VITE_SUPABASE_ANON_KEY=test-only-dummy-key npm run test:e2e` 로 돌리면 된다.
+- 린트는 이번 변경 전부터 96건(대부분 `public/game/js`)이었다. 이북리더기 파일은 0건.
