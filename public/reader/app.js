@@ -1,8 +1,11 @@
 // 파일 열기·쪽 넘김·목차·이어 읽기·메모·드라이브 저장을 연결해 읽기 화면을 운영하는 브라우저 앱.
 
 import {
+  FULL_SWIPE_MS,
+  TAP_SLOP,
   bookTitle,
   clamp,
+  classifyGesture,
   describeTextLocation,
   findAnchor,
   formatBytes,
@@ -26,11 +29,12 @@ const SAMPLE_TEXT = `# 이북리더기
 
 - 화면 오른쪽이나 아래쪽을 누르면 다음 쪽으로 넘어갑니다.
 - 왼쪽이나 위쪽을 누르면 이전 쪽으로 돌아갑니다.
+- 손가락으로 휙 넘겨도 됩니다. 왼쪽→오른쪽은 다음 쪽, 오른쪽→왼쪽은 이전 쪽입니다.
 - 위의 「목차」에서 원하는 장으로 바로 이동합니다.
 
 ## 메모
 
-- 문장을 손가락으로 쓱 끌면 형광펜이 칠해지고 바로 저장됩니다.
+- 글자 위에 손가락을 대고 옆으로 천천히 끌면 형광펜이 칠해지고 바로 저장됩니다.
 - 이어서 나오는 「내 생각」 칸에 떠오른 생각을 적어 두세요.
 - 구글 드라이브를 연결하면 「이북리더기_메모」 폴더에 메모_책제목.md 로 저장됩니다.
 
@@ -827,7 +831,7 @@ async function syncNow(retried = false) {
   }
 }
 
-/* ── 손가락 동작: 누르면 쪽 넘김, 끌면 형광펜 ─────────── */
+/* ── 손가락 동작: 누르거나 휙 넘기면 쪽 이동, 글자에서 천천히 끌면 형광펜 ── */
 
 let gesture = null;
 
@@ -860,25 +864,62 @@ function drawDragPreview(from, to) {
   }));
 }
 
+// 손가락이 실제 글자 위에 있을 때만 그 글자 위치를 돌려준다. 여백·줄 사이에서 시작하면 null.
+function textOffsetAtPoint(x, y) {
+  const offset = caretOffsetAt(x, y);
+  if (offset === null) return null;
+  for (const at of [offset, offset - 1]) {
+    const position = at >= 0 ? locate(activeIndex, at) : null;
+    if (!position || position.local >= position.node.length) continue;
+    const range = document.createRange();
+    range.setStart(position.node, position.local);
+    range.setEnd(position.node, position.local + 1);
+    for (const rect of range.getClientRects()) {
+      if (x >= rect.left - 4 && x <= rect.right + 4 && y >= rect.top - 4 && y <= rect.bottom + 4) return offset;
+    }
+  }
+  return null;
+}
+
+// 최근 0.1초 동안의 빠르기(px/ms). 손을 떼기 직전에 휙 넘겼는지 본다.
+function recentSpeed(samples) {
+  const last = samples.at(-1);
+  const first = samples.find(sample => last.t - sample.t <= 100) || last;
+  const elapsed = last.t - first.t;
+  return elapsed > 0 ? Math.hypot(last.x - first.x, last.y - first.y) / elapsed : 0;
+}
+
 function onPointerDown(event) {
   if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  const now = performance.now();
   gesture = {
     id: event.pointerId,
     x: event.clientX,
     y: event.clientY,
+    t: now,
     target: event.target,
-    start: caretOffsetAt(event.clientX, event.clientY),
+    start: textOffsetAtPoint(event.clientX, event.clientY),
     end: null,
-    dragging: false,
+    axis: null,
+    selecting: false,
+    samples: [{ x: event.clientX, y: event.clientY, t: now }],
   };
   elements.pageViewport.setPointerCapture?.(event.pointerId);
 }
 
 function onPointerMove(event) {
   if (!gesture || event.pointerId !== gesture.id) return;
-  const moved = Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y);
-  if (!gesture.dragging && moved > 10 && gesture.start !== null) gesture.dragging = true;
-  if (!gesture.dragging) return;
+  const now = performance.now();
+  gesture.samples.push({ x: event.clientX, y: event.clientY, t: now });
+  if (gesture.samples.length > 40) gesture.samples.shift();
+  const dx = event.clientX - gesture.x;
+  const dy = event.clientY - gesture.y;
+  if (!gesture.axis && Math.hypot(dx, dy) >= TAP_SLOP) gesture.axis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+  const slow = recentSpeed(gesture.samples) <= elements.pageViewport.clientWidth / FULL_SWIPE_MS;
+  if (!gesture.selecting && gesture.start !== null && gesture.axis === 'h' && now - gesture.t >= 150 && slow) {
+    gesture.selecting = true;
+  }
+  if (!gesture.selecting) return;
   event.preventDefault();
   const end = caretOffsetAt(event.clientX, event.clientY);
   if (end === null) return;
@@ -891,18 +932,30 @@ function onPointerUp(event) {
   gesture = null;
   elements.dragLayer.replaceChildren();
   if (!current || event.pointerId !== current.id) return;
-  if (current.dragging) {
-    if (current.end !== null) createMemo(current.start, current.end);
+  current.samples.push({ x: event.clientX, y: event.clientY, t: performance.now() });
+  const box = elements.pageViewport.getBoundingClientRect();
+  const kind = classifyGesture({
+    dx: event.clientX - current.x,
+    dy: event.clientY - current.y,
+    duration: current.samples.at(-1).t - current.t,
+    releaseSpeed: recentSpeed(current.samples),
+    width: box.width,
+    startOnText: current.start !== null,
+    axis: current.axis,
+  });
+  if (kind === 'memo') {
+    const end = caretOffsetAt(event.clientX, event.clientY) ?? current.end;
+    if (end !== null) createMemo(current.start, end);
     return;
   }
-  if (Math.hypot(event.clientX - current.x, event.clientY - current.y) > 10) return;
-  if (current.target.closest?.('a')) return;
+  if (kind === 'next') goToPage(state.page + 1);
+  if (kind === 'prev') goToPage(state.page - 1);
+  if (kind !== 'tap' || current.target.closest?.('a')) return;
   const mark = current.target.closest?.('mark.memo-mark');
   if (mark) {
     openMemo(mark.dataset.memoId);
     return;
   }
-  const box = elements.pageViewport.getBoundingClientRect();
   const action = pageAction(event.clientX - box.left, event.clientY - box.top, box.width, box.height);
   if (action === 'next') goToPage(state.page + 1);
   if (action === 'prev') goToPage(state.page - 1);

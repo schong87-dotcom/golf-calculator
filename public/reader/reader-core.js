@@ -212,6 +212,21 @@ export function pageAction(x, y, width, height) {
   return null;
 }
 
+export const TAP_SLOP = 10;
+export const FULL_SWIPE_MS = 500;
+
+// 손가락 동작 판정. 「빠르다」 = 화면 폭을 0.5초 안에 가로지르는 빠르기.
+// 빠르게 옆으로 넘기면 쪽 이동(왼→오른쪽 다음, 오른→왼쪽 이전), 글자에서 시작해 옆으로 천천히 끌면 메모.
+export function classifyGesture({ dx, dy, duration, releaseSpeed = 0, width, startOnText, axis }) {
+  const distance = Math.hypot(dx, dy);
+  if (distance < TAP_SLOP) return 'tap';
+  const flickSpeed = width / FULL_SWIPE_MS;
+  const fast = distance / Math.max(duration, 1) > flickSpeed || (duration < 350 && releaseSpeed > flickSpeed);
+  if (fast && Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'next' : 'prev';
+  if (!fast && startOnText && axis === 'h' && duration >= 150) return 'memo';
+  return 'none';
+}
+
 export function bookTitle(fileName = '') {
   return String(fileName).replace(/\.[^.]+$/, '') || '제목 없음';
 }

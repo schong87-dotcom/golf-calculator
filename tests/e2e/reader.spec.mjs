@@ -71,11 +71,23 @@ async function pdfLineSpan(page) {
   });
 }
 
-async function mouseDrag(page, span) {
+// 글자 위에서 눌러 0.6초 동안 천천히 끈다(메모). 시간이 판정 기준이라 실제로 기다린다.
+async function slowDrag(page, span, { ms = 600, dy = 0 } = {}) {
+  const steps = 12;
   await page.mouse.move(span.x1, span.y);
   await page.mouse.down();
-  await page.mouse.move((span.x1 + span.x2) / 2, span.y, { steps: 4 });
-  await page.mouse.move(span.x2, span.y, { steps: 4 });
+  for (let step = 1; step <= steps; step += 1) {
+    await page.waitForTimeout(ms / steps);
+    await page.mouse.move(span.x1 + ((span.x2 - span.x1) * step) / steps, span.y + (dy * step) / steps);
+  }
+  await page.mouse.up();
+}
+
+// 기다림 없이 휙 넘긴다.
+async function flick(page, fromX, toX, y) {
+  await page.mouse.move(fromX, y);
+  await page.mouse.down();
+  for (let step = 1; step <= 4; step += 1) await page.mouse.move(fromX + ((toX - fromX) * step) / 4, y);
   await page.mouse.up();
 }
 
@@ -114,7 +126,7 @@ test('pdf opens, renders korean text and turns pages', async ({ page }) => {
 test('pdf text can be highlighted', async ({ page }) => {
   await openPdf(page);
   const span = await pdfLineSpan(page);
-  await mouseDrag(page, span);
+  await slowDrag(page, span);
   await expect(page.locator('#pdf-stage .textLayer mark.memo-mark').first()).toBeVisible();
   await expect(page.locator('#memo-dialog')).toBeVisible();
   const memos = await storedMemos(page);
@@ -234,7 +246,7 @@ test('resume prompt can be declined', async ({ page }) => {
 test('dragging text saves a highlight', async ({ page }) => {
   await openBook(page);
   const span = await visibleTextSpan(page, '#reading-content');
-  await mouseDrag(page, span);
+  await slowDrag(page, span);
   const mark = page.locator('#reading-content mark.memo-mark');
   await expect(mark).toHaveCount(1);
   const marked = (await mark.textContent()).trim();
@@ -249,7 +261,7 @@ test('dragging text saves a highlight', async ({ page }) => {
 
 test('my thought is saved and highlight survives reload', async ({ page }) => {
   await openBook(page);
-  await mouseDrag(page, await visibleTextSpan(page, '#reading-content'));
+  await slowDrag(page, await visibleTextSpan(page, '#reading-content'));
   const dialog = page.locator('#memo-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('내 생각')).toBeVisible();
@@ -269,20 +281,61 @@ test('my thought is saved and highlight survives reload', async ({ page }) => {
   await expect(page.locator('#page-indicator')).toHaveText(/^1 \//);
 });
 
-test('touch drag highlights text', async ({ page, browserName }) => {
+test('touch flick turns pages, slow touch drag highlights', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', '터치 이동은 CDP로만 보낼 수 있다');
   await openBook(page);
   const span = await visibleTextSpan(page, '#reading-content');
   const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: span.x1, y: span.y }] });
-  for (let step = 1; step <= 6; step += 1) {
-    const x = span.x1 + ((span.x2 - span.x1) * step) / 6;
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: span.y }] });
-  }
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  const touch = async (fromX, toX, y, ms) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: fromX, y }] });
+    for (let step = 1; step <= 8; step += 1) {
+      if (ms) await page.waitForTimeout(ms / 8);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: fromX + ((toX - fromX) * step) / 8, y }] });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+
+  await touch(span.x1, span.x2 + 60, span.y, 0);
+  await expect(page.locator('#page-indicator')).toHaveText(/^2 \//);
+  await touch(span.x2 + 60, span.x1, span.y, 0);
+  await expect(page.locator('#page-indicator')).toHaveText(/^1 \//);
+  await expect(page.locator('#reading-content mark.memo-mark')).toHaveCount(0);
+
+  await touch(span.x1, span.x2, span.y, 600);
   await expect(page.locator('#reading-content mark.memo-mark')).toHaveCount(1);
   expect(await storedMemos(page)).toHaveLength(1);
   await expect(page.locator('#page-indicator')).toHaveText(/^1 \//);
+});
+
+test('fast flick turns pages without highlighting', async ({ page }) => {
+  await openBook(page);
+  const span = await visibleTextSpan(page, '#reading-content');
+  await flick(page, span.x1, span.x2 + 60, span.y);
+  await expect(page.locator('#page-indicator')).toHaveText(/^2 \//);
+  await flick(page, span.x2 + 60, span.x1, span.y);
+  await expect(page.locator('#page-indicator')).toHaveText(/^1 \//);
+  await expect(page.locator('#reading-content mark.memo-mark')).toHaveCount(0);
+  await expect(page.locator('#memo-dialog')).toBeHidden();
+  expect(await storedMemos(page)).toHaveLength(0);
+});
+
+test('short upward drag does not highlight', async ({ page }) => {
+  await openBook(page);
+  const span = await visibleTextSpan(page, '#reading-content');
+  await slowDrag(page, { ...span, x2: span.x1 + 4 }, { ms: 300, dy: -30 });
+  await expect(page.locator('#reading-content mark.memo-mark')).toHaveCount(0);
+  await expect(page.locator('#page-indicator')).toHaveText(/^1 \//);
+  expect(await storedMemos(page)).toHaveLength(0);
+});
+
+test('slow drag from blank margin does not highlight', async ({ page }) => {
+  await openBook(page);
+  const span = await visibleTextSpan(page, '#reading-content');
+  const viewport = await page.locator('#page-viewport').boundingBox();
+  await slowDrag(page, { x1: viewport.x + 6, x2: span.x2, y: span.y });
+  await expect(page.locator('#reading-content mark.memo-mark')).toHaveCount(0);
+  await expect(page.locator('#page-indicator')).toHaveText(/^1 \//);
+  expect(await storedMemos(page)).toHaveLength(0);
 });
 
 test('memo syncs to google drive folder', async ({ page }) => {
@@ -334,7 +387,7 @@ test('memo syncs to google drive folder', async ({ page }) => {
   });
 
   await openBook(page);
-  await mouseDrag(page, await visibleTextSpan(page, '#reading-content'));
+  await slowDrag(page, await visibleTextSpan(page, '#reading-content'));
   const dialog = page.locator('#memo-dialog');
   await dialog.getByRole('button', { name: '구글 드라이브 연결' }).click();
   await expect(dialog.locator('[data-drive-status]')).toContainText('드라이브에 저장됨');
