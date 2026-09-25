@@ -1,11 +1,11 @@
-<!-- 스마트폰에서 텍스트와 Markdown 파일을 편하게 읽는 이북리더기 진입 화면. -->
+<!-- 스마트폰에서 텍스트·Markdown·PDF 파일을 쪽 단위로 읽고 메모하는 이북리더기 진입 화면. -->
 <!doctype html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1d1c19">
-    <meta name="description" content="텍스트와 Markdown 파일을 편하게 읽는 이북리더기">
+    <meta name="description" content="텍스트·Markdown·PDF 파일을 편하게 읽고 메모하는 이북리더기">
     <title>이북리더기</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
@@ -19,7 +19,7 @@
           </a>
           <div class="top-actions">
             <label class="file-button">
-              <input id="file-input" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown">
+              <input id="file-input" type="file" accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf">
               <span aria-hidden="true">＋</span> 파일 열기
             </label>
             <button id="theme-toggle" class="icon-button" type="button" aria-label="다크모드로 전환" aria-pressed="false">
@@ -38,7 +38,7 @@
           </div>
           <div id="drop-zone" class="drop-zone" tabindex="0">
             <span class="drop-icon" aria-hidden="true">↥</span>
-            <span>TXT 또는 MD 파일을 끌어놓기</span>
+            <span>TXT·MD·PDF 파일을 끌어놓기</span>
           </div>
         </section>
 
@@ -49,9 +49,14 @@
               <span id="file-name">환영합니다</span>
               <span class="file-size" id="file-size">읽기 안내</span>
             </div>
-            <button id="settings-toggle" class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-panel">
-              <span aria-hidden="true">☷</span> 보기 설정
-            </button>
+            <div class="card-actions">
+              <button id="toc-toggle" class="settings-toggle" type="button" aria-haspopup="dialog">
+                <span aria-hidden="true">☰</span> 목차
+              </button>
+              <button id="settings-toggle" class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-panel">
+                <span aria-hidden="true">☷</span> 보기 설정
+              </button>
+            </div>
           </div>
 
           <div id="settings-panel" class="settings-panel" hidden>
@@ -81,15 +86,69 @@
             </div>
           </div>
 
-          <article id="reading-content" class="reading-content markdown-content" tabindex="0"></article>
+          <div id="page-viewport" class="page-viewport" aria-label="읽기 화면. 오른쪽이나 아래를 누르면 다음 쪽, 왼쪽이나 위를 누르면 이전 쪽">
+            <article id="reading-content" class="reading-content markdown-content" tabindex="0"></article>
+            <div id="pdf-stage" class="pdf-stage" hidden></div>
+            <div id="drag-layer" class="drag-layer" aria-hidden="true"></div>
+          </div>
 
           <footer class="reader-footer">
             <span id="reading-stats">읽기 안내</span>
-            <span>브라우저 안에서 안전하게 읽습니다.</span>
+            <span id="page-indicator" class="page-indicator" aria-live="polite">1 / 1</span>
           </footer>
         </section>
       </main>
     </div>
+    <dialog id="toc-dialog" class="side-sheet" aria-labelledby="toc-title">
+      <div class="sheet-head">
+        <div class="sheet-tabs" role="tablist">
+          <button id="toc-title" class="sheet-tab is-active" type="button" role="tab" aria-selected="true" data-tab="toc">목차</button>
+          <button class="sheet-tab" type="button" role="tab" aria-selected="false" data-tab="memos">메모 <span id="memo-count">0</span></button>
+        </div>
+        <button class="sheet-close" type="button" data-close aria-label="닫기">✕</button>
+      </div>
+      <div class="sheet-body" data-panel="toc">
+        <ol id="toc-list" class="toc-list"></ol>
+        <p id="toc-empty" class="sheet-empty" hidden>이 파일에서는 목차로 쓸 제목을 찾지 못했습니다.</p>
+      </div>
+      <div class="sheet-body" data-panel="memos" hidden>
+        <div class="drive-box">
+          <span data-drive-status></span>
+          <button class="drive-button" type="button" data-drive-connect hidden>구글 드라이브 연결</button>
+          <a class="drive-link" data-drive-link target="_blank" rel="noreferrer" hidden>메모 파일 열기</a>
+        </div>
+        <ol id="memo-list" class="memo-list"></ol>
+        <p id="memo-empty" class="sheet-empty">문장을 손가락으로 쓱 끌면 형광펜과 함께 메모가 저장됩니다.</p>
+      </div>
+    </dialog>
+
+    <dialog id="memo-dialog" class="bottom-sheet" aria-labelledby="memo-title">
+      <div class="sheet-head">
+        <strong id="memo-title">메모</strong>
+        <span id="memo-where" class="memo-where"></span>
+      </div>
+      <blockquote id="memo-quote" class="memo-quote"></blockquote>
+      <label class="thought-label" for="memo-thought">내 생각</label>
+      <textarea id="memo-thought" class="thought-input" rows="4" placeholder="이 문장을 읽고 떠오른 생각을 적어 보세요."></textarea>
+      <div class="drive-box">
+        <span data-drive-status></span>
+        <button class="drive-button" type="button" data-drive-connect hidden>구글 드라이브 연결</button>
+      </div>
+      <div class="sheet-actions">
+        <button id="memo-delete" class="ghost-button" type="button">형광펜 지우기</button>
+        <button id="memo-done" class="primary-button" type="button" autofocus>완료</button>
+      </div>
+    </dialog>
+
+    <dialog id="resume-dialog" class="center-dialog" aria-labelledby="resume-question">
+      <p id="resume-question" class="resume-question">마지막에 읽었던 페이지로 이동할까요?</p>
+      <p id="resume-detail" class="resume-detail"></p>
+      <div class="sheet-actions">
+        <button id="resume-no" class="ghost-button" type="button">아니오</button>
+        <button id="resume-yes" class="primary-button" type="button" autofocus>예</button>
+      </div>
+    </dialog>
+
     <script type="module" src="./app.js"></script>
   </body>
 </html>
