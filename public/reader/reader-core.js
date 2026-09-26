@@ -203,27 +203,27 @@ export function renderDocument(content = '', kind = 'markdown') {
   return { html, toc };
 }
 
-// 읽기 화면을 3×3으로 나눈다. 좌·우 열이 먼저, 가운데 열은 위·아래로 넘긴다.
+// 읽기 화면을 3×3으로 나눈다. 아래 1/3은 어디를 눌러도 다음 쪽. 그 위는 좌·우 열이 먼저, 가운데 열 위쪽은 이전 쪽.
 export function pageAction(x, y, width, height) {
+  if (y >= (height * 2) / 3) return 'next';
   if (x < width / 3) return 'prev';
   if (x > (width * 2) / 3) return 'next';
   if (y < height / 3) return 'prev';
-  if (y > (height * 2) / 3) return 'next';
   return null;
 }
 
 export const TAP_SLOP = 10;
-export const FULL_SWIPE_MS = 500;
+export const HOLD_MS = 500;
+export const SWIPE_MIN = 30;
 
-// 손가락 동작 판정. 「빠르다」 = 화면 폭을 0.5초 안에 가로지르는 빠르기.
-// 빠르게 옆으로 넘기면 쪽 이동(왼→오른쪽 다음, 오른→왼쪽 이전), 글자에서 시작해 옆으로 천천히 끌면 메모.
-export function classifyGesture({ dx, dy, duration, releaseSpeed = 0, width, startOnText, axis }) {
+// 손가락 동작 판정. held = 움직이기 전에 0.5초(HOLD_MS) 이상 누르고 있었는지.
+// 누르고 있었으면 글자에서 끌 때만 메모(빠르기·방향 무관). 누르고 있지 않았으면 옆으로 30px 이상은 쪽 이동
+// (오른→왼쪽 다음, 왼→오른쪽 이전), 거의 안 움직였으면 탭.
+export function classifyGesture({ dx, dy, held, startOnText }) {
   const distance = Math.hypot(dx, dy);
+  if (held) return startOnText && distance >= TAP_SLOP ? 'memo' : 'none';
   if (distance < TAP_SLOP) return 'tap';
-  const flickSpeed = width / FULL_SWIPE_MS;
-  const fast = distance / Math.max(duration, 1) > flickSpeed || (duration < 350 && releaseSpeed > flickSpeed);
-  if (fast && Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'next' : 'prev';
-  if (!fast && startOnText && axis === 'h' && duration >= 150) return 'memo';
+  if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? 'next' : 'prev';
   return 'none';
 }
 

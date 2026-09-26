@@ -1,7 +1,7 @@
 // 파일 열기·쪽 넘김·목차·이어 읽기·메모·드라이브 저장을 연결해 읽기 화면을 운영하는 브라우저 앱.
 
 import {
-  FULL_SWIPE_MS,
+  HOLD_MS,
   TAP_SLOP,
   bookTitle,
   buildMemoMarkdown,
@@ -868,9 +868,10 @@ async function syncNow(retried = false) {
   }
 }
 
-/* ── 손가락 동작: 누르거나 휙 넘기면 쪽 이동, 글자에서 천천히 끌면 형광펜 ── */
+/* ── 손가락 동작: 누르거나 옆으로 넘기면 쪽 이동, 글자에서 0.5초 누르고 있다가 끌면 형광펜 ── */
 
 let gesture = null;
+let holdTimer = 0;
 
 function caretOffsetAt(x, y) {
   if (!activeIndex || !state.bookId) return null;
@@ -918,45 +919,43 @@ function textOffsetAtPoint(x, y) {
   return null;
 }
 
-// 최근 0.1초 동안의 빠르기(px/ms). 손을 떼기 직전에 휙 넘겼는지 본다.
-function recentSpeed(samples) {
-  const last = samples.at(-1);
-  const first = samples.find(sample => last.t - sample.t <= 100) || last;
-  const elapsed = last.t - first.t;
-  return elapsed > 0 ? Math.hypot(last.x - first.x, last.y - first.y) / elapsed : 0;
+// 0.5초 동안 움직이지 않고 누르고 있으면 메모 모드. 글자 위였으면 손가락 아래 글자를 먼저 칠해 알려 준다.
+function onHold(pointerId) {
+  if (!gesture || gesture.id !== pointerId || gesture.moved) return;
+  gesture.held = true;
+  if (gesture.start === null) return;
+  navigator.vibrate?.(20);
+  drawDragPreview(gesture.start, Math.min(gesture.start + 1, activeIndex.length));
 }
 
 function onPointerDown(event) {
   if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
-  const now = performance.now();
+  clearTimeout(holdTimer);
   gesture = {
     id: event.pointerId,
     x: event.clientX,
     y: event.clientY,
-    t: now,
     target: event.target,
     start: textOffsetAtPoint(event.clientX, event.clientY),
     end: null,
-    axis: null,
-    selecting: false,
-    samples: [{ x: event.clientX, y: event.clientY, t: now }],
+    moved: false,
+    held: false,
   };
   elements.pageViewport.setPointerCapture?.(event.pointerId);
+  holdTimer = setTimeout(onHold, HOLD_MS, event.pointerId);
 }
 
 function onPointerMove(event) {
   if (!gesture || event.pointerId !== gesture.id) return;
-  const now = performance.now();
-  gesture.samples.push({ x: event.clientX, y: event.clientY, t: now });
-  if (gesture.samples.length > 40) gesture.samples.shift();
-  const dx = event.clientX - gesture.x;
-  const dy = event.clientY - gesture.y;
-  if (!gesture.axis && Math.hypot(dx, dy) >= TAP_SLOP) gesture.axis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
-  const slow = recentSpeed(gesture.samples) <= elements.pageViewport.clientWidth / FULL_SWIPE_MS;
-  if (!gesture.selecting && gesture.start !== null && gesture.axis === 'h' && now - gesture.t >= 150 && slow) {
-    gesture.selecting = true;
+  if (!gesture.held) {
+    // 누르고 있는 동안 움직이면 넘기기다. 메모 모드로는 들어가지 않는다.
+    if (!gesture.moved && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) >= TAP_SLOP) {
+      gesture.moved = true;
+      clearTimeout(holdTimer);
+    }
+    return;
   }
-  if (!gesture.selecting) return;
+  if (gesture.start === null) return;
   event.preventDefault();
   const end = caretOffsetAt(event.clientX, event.clientY);
   if (end === null) return;
@@ -967,18 +966,15 @@ function onPointerMove(event) {
 function onPointerUp(event) {
   const current = gesture;
   gesture = null;
+  clearTimeout(holdTimer);
   elements.dragLayer.replaceChildren();
   if (!current || event.pointerId !== current.id) return;
-  current.samples.push({ x: event.clientX, y: event.clientY, t: performance.now() });
   const box = elements.pageViewport.getBoundingClientRect();
   const kind = classifyGesture({
     dx: event.clientX - current.x,
     dy: event.clientY - current.y,
-    duration: current.samples.at(-1).t - current.t,
-    releaseSpeed: recentSpeed(current.samples),
-    width: box.width,
+    held: current.held,
     startOnText: current.start !== null,
-    axis: current.axis,
   });
   if (kind === 'memo') {
     const end = caretOffsetAt(event.clientX, event.clientY) ?? current.end;
@@ -1000,6 +996,7 @@ function onPointerUp(event) {
 
 function onPointerCancel() {
   gesture = null;
+  clearTimeout(holdTimer);
   elements.dragLayer.replaceChildren();
 }
 
