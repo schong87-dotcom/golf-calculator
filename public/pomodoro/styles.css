@@ -1,0 +1,425 @@
+/* 기계식 타이머의 눈금과 다이얼을 닮은 화면 스타일 */
+:root {
+  color-scheme: light;
+  --page: #fffdf9;
+  --surface: #ffffff;
+  --ink: #211f1d;
+  --muted: #77736e;
+  --line: #dedad3;
+  --line-strong: #c8c3bc;
+  --accent: #d72e3b;
+  --accent-soft: #f5d7d8;
+  --ring: rgba(33, 31, 29, 0.08);
+  --shadow: rgba(35, 31, 29, 0.07);
+  font-family: "Avenir Next", "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background: var(--page);
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+body[data-accent="green"] {
+  --accent: #24815d;
+  --accent-soft: #d7ebe1;
+}
+
+body[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #171817;
+  --surface: #202220;
+  --ink: #f4f0e9;
+  --muted: #a8aaa5;
+  --line: #3d403c;
+  --line-strong: #5c605a;
+  --ring: rgba(244, 240, 233, 0.12);
+  --shadow: rgba(0, 0, 0, 0.22);
+}
+
+button, select, input { font: inherit; }
+button { color: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible, .file-button:focus-within {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 3px;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 52px;
+}
+
+.app-header {
+  display: flex;
+  height: 82px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+
+.header-actions { display: flex; align-items: center; gap: 8px; }
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 720;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.brand-mark {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  overflow: hidden;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) 0 25%, transparent 25% 100%);
+}
+
+.brand-mark::after {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--page);
+  content: "";
+}
+
+.fullscreen-button, .reset-button, .sound-test, .file-button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 620;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.fullscreen-button { padding: 0 13px; }
+.floating-button[hidden] { display: none; }
+.fullscreen-button svg, .reset-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.fullscreen-button:hover, .reset-button:hover, .sound-test:hover, .file-button:hover { border-color: var(--line-strong); background: color-mix(in srgb, var(--surface) 72%, var(--line)); }
+.fullscreen-button:active, .reset-button:active, .sound-test:active, .file-button:active { transform: scale(0.98); }
+
+.timer-layout {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 292px;
+  align-items: center;
+  gap: clamp(36px, 6vw, 92px);
+  padding: 38px 0 32px;
+}
+
+.timer-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.mode-tab {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 640;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.mode-tab:hover { color: var(--ink); }
+.mode-tab.is-active { background: var(--accent-soft); color: var(--accent); }
+
+.dial-shell {
+  position: relative;
+  width: min(39vw, 454px);
+  min-width: 320px;
+  aspect-ratio: 1;
+  filter: drop-shadow(0 12px 18px var(--shadow));
+}
+
+.dial-svg { display: block; width: 100%; height: 100%; overflow: visible; cursor: grab; touch-action: none; user-select: none; }
+.dial-svg.is-dragging { cursor: grabbing; }
+.dial-outline { fill: var(--surface); stroke: var(--line-strong); stroke-width: 0.72; }
+.dial-sector { fill: var(--accent); transition: d 220ms linear, fill 180ms ease; }
+.dial-handle { fill: var(--accent); stroke: var(--surface); stroke-width: 1.25; pointer-events: none; }
+.dial-tick { stroke: var(--ink); stroke-linecap: round; stroke-width: 0.76; }
+.dial-tick.is-major { stroke-width: 1.12; }
+.dial-label { fill: var(--ink); font-size: 4.8px; font-weight: 670; font-variant-numeric: tabular-nums; }
+
+.dial-center {
+  position: absolute;
+  inset: 32%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 3px 9px var(--shadow), inset 0 0 0 4px color-mix(in srgb, var(--surface) 86%, var(--line));
+  text-align: center;
+}
+
+.dial-mode {
+  color: var(--muted);
+  font-size: clamp(11px, 1.15vw, 14px);
+  font-weight: 660;
+}
+
+.time-display {
+  margin: 7px 0 8px;
+  color: var(--ink);
+  font-family: "Arial Rounded MT Bold", "Avenir Next", "SF Pro Rounded", -apple-system, sans-serif;
+  font-size: clamp(35px, 4.4vw, 52px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  letter-spacing: -0.065em;
+  line-height: 1;
+}
+
+.timer-toggle {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 680;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.timer-toggle:hover { filter: brightness(1.06); }
+.timer-toggle:active { transform: scale(0.97); }
+.toggle-glyph { font-size: 10px; }
+
+.duration-control {
+  display: flex;
+  width: min(100%, 300px);
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.duration-label { color: var(--muted); font-size: 13px; font-weight: 620; }
+.minute-stepper { display: inline-flex; align-items: center; gap: 11px; }
+.minute-stepper button {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+}
+.minute-stepper button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.minute-stepper button:disabled { cursor: not-allowed; opacity: 0.42; }
+.minute-stepper output { min-width: 38px; text-align: center; font-size: 13px; font-weight: 660; font-variant-numeric: tabular-nums; }
+
+.phase-note { min-height: 20px; margin: 12px 0 10px; color: var(--muted); font-size: 12px; text-align: center; }
+.timer-actions { display: flex; justify-content: center; }
+.reset-button { min-height: 35px; padding: 0 11px; font-size: 12px; }
+.fullscreen-exit { display: none; }
+
+.settings-panel {
+  align-self: center;
+  padding: 23px 22px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 6px 22px var(--shadow);
+}
+
+.settings-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 19px; }
+.settings-kicker { margin: 0 0 3px; color: var(--muted); font-size: 10px; font-weight: 730; letter-spacing: 0.04em; }
+.settings-heading h1 { margin: 0; font-size: 18px; font-weight: 720; letter-spacing: -0.045em; }
+.settings-icon { width: 31px; height: 31px; fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
+.setting-group { padding: 16px 0; border: 0; border-top: 1px solid var(--line); }
+.setting-group legend, .sound-group > label, .theme-group h2 { display: block; margin: 0 0 10px; padding: 0; color: var(--ink); font-size: 12px; font-weight: 680; }
+.accent-options { display: flex; gap: 8px; }
+.accent-choice { display: flex; min-width: 90px; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 620; }
+.accent-choice:has(input:checked) { border-color: var(--line-strong); color: var(--ink); }
+.accent-choice input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.accent-swatch { width: 11px; height: 11px; border-radius: 50%; }
+.accent-choice-red .accent-swatch { background: #d72e3b; }
+.accent-choice-green .accent-swatch { background: #24815d; }
+
+.theme-group { display: flex; align-items: center; justify-content: space-between; }
+.theme-group h2 { margin-bottom: 4px; }
+.theme-group p { margin: 0; color: var(--muted); font-size: 11px; }
+.theme-toggle { position: relative; width: 42px; height: 25px; border: 0; border-radius: 99px; background: var(--line-strong); cursor: pointer; transition: background-color 180ms ease; }
+.theme-toggle[aria-pressed="true"] { background: var(--accent); }
+.theme-knob { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px var(--shadow); transition: transform 180ms ease; }
+.theme-toggle[aria-pressed="true"] .theme-knob { transform: translateX(17px); }
+
+.sound-group { display: flex; flex-direction: column; gap: 9px; }
+.sound-group > label { margin-bottom: 0; }
+.sound-group select { width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--page); color: var(--ink); font-size: 12px; }
+.sound-buttons { display: flex; gap: 7px; }
+.sound-test, .file-button { min-height: 34px; flex: 1; padding: 0 8px; font-size: 11px; white-space: nowrap; }
+.sound-test { background: color-mix(in srgb, var(--surface) 78%, var(--accent-soft)); }
+.file-button { cursor: pointer; }
+.sound-hint, .sound-status { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.sound-status { min-height: 15px; }
+.sound-status[data-error="true"] { color: var(--accent); }
+.volume-group { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px 12px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--ink); font-size: 12px; font-weight: 680; }
+.volume-group output { color: var(--muted); font-size: 11px; font-weight: 620; }
+.volume-group input { width: 100%; grid-column: 1 / -1; accent-color: var(--accent); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+
+.app-footer { display: flex; min-height: 48px; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.footer-indicator { display: inline-flex; align-items: center; gap: 6px; }
+.footer-indicator i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+body[data-fullscreen="true"] { overflow: hidden; }
+body[data-fullscreen="true"] .app-shell { max-width: none; justify-content: center; padding: 0; }
+body[data-fullscreen="true"] .app-header,
+body[data-fullscreen="true"] .mode-tabs,
+body[data-fullscreen="true"] .duration-control,
+body[data-fullscreen="true"] .phase-note,
+body[data-fullscreen="true"] .timer-actions,
+body[data-fullscreen="true"] .settings-panel,
+body[data-fullscreen="true"] .app-footer { display: none; }
+body[data-fullscreen="true"] .fullscreen-exit {
+  position: fixed;
+  z-index: 2;
+  top: max(18px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 25px;
+  font-weight: 350;
+  line-height: 1;
+  opacity: 0.52;
+}
+body[data-fullscreen="true"] .fullscreen-exit:hover { opacity: 1; }
+body[data-fullscreen="true"] .timer-layout { display: block; flex: initial; padding: 0; }
+body[data-fullscreen="true"] .dial-shell { width: min(76vh, 76vw, 760px); min-width: 0; margin: 0 auto; filter: none; }
+body[data-fullscreen="true"] .dial-center { inset: 32%; }
+body[data-fullscreen="true"] .time-display { font-size: clamp(58px, 8vw, 88px); }
+body[data-fullscreen="true"] .timer-toggle { min-height: 42px; padding: 0 18px; font-size: 14px; }
+body[data-fullscreen="true"] .dial-mode { font-size: clamp(14px, 1.7vw, 19px); }
+
+body.pip-body {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  padding: 8px;
+  background: transparent;
+  user-select: none;
+}
+
+.pip-clock { position: relative; width: min(100%, 100vh); aspect-ratio: 1; }
+.pip-dial-shell { position: absolute; inset: 0; }
+.pip-center {
+  position: absolute;
+  inset: 27%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 3px 9px var(--shadow), inset 0 0 0 3px color-mix(in srgb, var(--surface) 86%, var(--line));
+  text-align: center;
+}
+.pip-mode { color: var(--muted); font-size: clamp(9px, 4vw, 12px); font-weight: 660; }
+.pip-time { margin-top: 4px; color: var(--ink); font-family: "Arial Rounded MT Bold", "Avenir Next", "SF Pro Rounded", -apple-system, sans-serif; font-size: clamp(20px, 14vw, 29px); font-variant-numeric: tabular-nums; font-weight: 720; letter-spacing: -0.07em; line-height: 1; }
+.pip-clock .dial-label { font-size: 5.3px; }
+
+@media (max-width: 1000px) {
+  .app-shell { padding: 0 30px; }
+  .timer-layout { grid-template-columns: minmax(0, 1fr) 270px; gap: 30px; }
+  .dial-shell { width: min(43vw, 410px); min-width: 300px; }
+  .settings-panel { padding-right: 18px; padding-left: 18px; }
+}
+
+@media (max-width: 720px) {
+  .app-shell { padding: 0 20px; }
+  .app-header { height: 65px; }
+  .timer-layout { display: flex; flex-direction: column; gap: 28px; padding: 23px 0 26px; }
+  .timer-column { width: 100%; }
+  .mode-tabs { margin-bottom: 14px; }
+  .mode-tab { min-height: 33px; padding: 0 12px; font-size: 12px; }
+  .dial-shell { width: min(84vw, 390px); min-width: 0; }
+  .dial-center { inset: 32%; }
+  .time-display { font-size: clamp(32px, 10vw, 42px); }
+  .dial-mode { font-size: 12px; }
+  .duration-control { width: min(100%, 300px); margin-top: 12px; }
+  .phase-note { margin-top: 10px; }
+  .settings-panel { width: min(100%, 440px); align-self: center; }
+  .app-footer { min-height: 43px; font-size: 10px; }
+  .fullscreen-button { display: none; }
+  .floating-button { display: none; }
+}
+
+@media (max-width: 380px) {
+  .app-shell { padding: 0 14px; }
+  .dial-shell { width: min(88vw, 340px); }
+  .mode-tabs { gap: 1px; }
+  .mode-tab { padding: 0 9px; }
+  .time-display { font-size: clamp(31px, 10vw, 37px); }
+  .dial-label { font-size: 5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}

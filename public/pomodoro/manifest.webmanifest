@@ -1,0 +1,18 @@
+{
+  "name": "뽀모도로 타이머",
+  "short_name": "뽀모도로",
+  "description": "분 단위로 조절하는 뽀모도로 집중 타이머",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fffdf9",
+  "theme_color": "#fffdf9",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

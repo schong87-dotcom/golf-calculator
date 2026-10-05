@@ -16,7 +16,20 @@ function gameDirIndex() {
   }
 }
 
+// 개발 서버에서 /pomodoro/ 요청을 타이머의 정적 진입 파일로 연결한다.
+function pomodoroDirIndex() {
+  return {
+    name: 'pomodoro-dir-index',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url === '/pomodoro' || req.url === '/pomodoro/') req.url = '/pomodoro/index.html'
+        next()
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), gameDirIndex()],
+  plugins: [react(), gameDirIndex(), pomodoroDirIndex()],
 })

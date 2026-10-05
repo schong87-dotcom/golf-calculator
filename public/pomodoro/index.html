@@ -1,0 +1,148 @@
+<!-- 집중 시간과 휴식 시간을 조절하는 뽀모도로 타이머 -->
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#fffdf9">
+    <meta name="description" content="분 단위로 조절하는 뽀모도로 집중 타이머">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <title>뽀모도로 타이머</title>
+  </head>
+  <body data-theme="light" data-accent="red" data-fullscreen="false">
+    <div class="app-shell">
+      <header class="app-header">
+        <a class="brand" href="./" aria-label="뽀모도로 타이머 처음 화면">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>뽀모도로</span>
+        </a>
+        <div class="header-actions">
+          <button class="fullscreen-button floating-button" id="floating-button" type="button" aria-label="최상위 모드" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="14" height="14" rx="2" /><path d="M8 20h11a1 1 0 0 0 1-1V9M10 9h5M12.5 6.5v5" /></svg>
+            <span id="floating-button-label">최상위 모드</span>
+          </button>
+          <button class="fullscreen-button" id="fullscreen-button" type="button" aria-label="전체화면">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" /></svg>
+            <span>전체화면</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="timer-layout">
+        <section class="timer-column" aria-label="뽀모도로 타이머">
+          <nav class="mode-tabs" aria-label="타이머 종류">
+            <button type="button" class="mode-tab is-active" data-mode="focus" aria-pressed="true">집중</button>
+            <button type="button" class="mode-tab" data-mode="short" aria-pressed="false">짧은 휴식</button>
+            <button type="button" class="mode-tab" data-mode="long" aria-pressed="false">긴 휴식</button>
+          </nav>
+
+          <div class="dial-shell" id="dial-shell">
+            <svg class="dial-svg" id="dial-svg" viewBox="0 0 100 100" role="img" aria-label="남은 시간을 표시하는 원형 다이얼">
+              <circle class="dial-outline" cx="50" cy="50" r="48" />
+              <path class="dial-sector" id="dial-sector" d="" />
+              <g class="dial-ticks" id="dial-ticks" aria-hidden="true"></g>
+              <g class="dial-labels" id="dial-labels" aria-hidden="true"></g>
+              <circle class="dial-handle" id="dial-handle" cx="50" cy="14" r="1.8" aria-hidden="true" />
+            </svg>
+            <div class="dial-center">
+              <span class="dial-mode" id="clock-mode">집중</span>
+              <time class="time-display" id="time-display" aria-live="off">25:00</time>
+              <button class="timer-toggle" id="timer-toggle" type="button" aria-label="타이머 시작">
+                <span class="toggle-glyph" id="toggle-glyph" aria-hidden="true">▶</span>
+                <span id="timer-toggle-label">시작</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="duration-control" aria-label="타이머 시간 조절">
+            <span class="duration-label" id="duration-label">집중 시간</span>
+            <div class="minute-stepper">
+              <button type="button" id="decrease-time" aria-label="1분 줄이기">−</button>
+              <output id="duration-value" for="decrease-time increase-time">25분</output>
+              <button type="button" id="increase-time" aria-label="1분 늘리기">＋</button>
+            </div>
+          </div>
+
+          <p class="phase-note" id="phase-note" aria-live="polite">지금 하는 일 하나에 집중해 보세요.</p>
+          <div class="timer-actions">
+            <button class="reset-button" id="reset-button" type="button" aria-label="초기화">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.34-5.66L4 8.67M4 4v4.67h4.67" /></svg>
+              <span>초기화</span>
+            </button>
+          </div>
+        </section>
+
+        <aside class="settings-panel" aria-labelledby="settings-title">
+          <div class="settings-heading">
+            <div>
+              <p class="settings-kicker">내 시계</p>
+              <h1 id="settings-title">보기와 소리</h1>
+            </div>
+            <svg class="settings-icon" viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="16" cy="16" r="11" />
+              <path d="M16 8v8l5 3" />
+            </svg>
+          </div>
+
+          <fieldset class="setting-group accent-group">
+            <legend>다이얼 색</legend>
+            <div class="accent-options">
+              <label class="accent-choice accent-choice-red">
+                <input id="accent-red" type="radio" name="accent" value="red" checked>
+                <span class="accent-swatch" aria-hidden="true"></span>
+                <span>빨강</span>
+              </label>
+              <label class="accent-choice accent-choice-green">
+                <input id="accent-green" type="radio" name="accent" value="green">
+                <span class="accent-swatch" aria-hidden="true"></span>
+                <span>초록</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="setting-group theme-group">
+            <div>
+              <h2>화면 테마</h2>
+              <p id="theme-description">밝은 배경</p>
+            </div>
+            <button class="theme-toggle" id="theme-toggle" type="button" aria-label="다크 모드 켜기" aria-pressed="false">
+              <span class="theme-knob" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div class="setting-group sound-group">
+            <label for="sound-select">알람 소리</label>
+            <select id="sound-select">
+              <option value="chime">맑은 종</option>
+              <option value="bell">탁상 종</option>
+              <option value="digital">디지털</option>
+              <option value="soft">부드러운 알림</option>
+            </select>
+            <div class="sound-buttons">
+              <button type="button" class="sound-test" id="sound-test">소리 들어보기</button>
+              <label class="file-button" for="custom-sound-file">맥 사운드 가져오기</label>
+              <input id="custom-sound-file" class="visually-hidden" type="file" accept="audio/*,.aiff,.aif,.caf,.m4a">
+            </div>
+              <p class="sound-hint">맥 사운드 파일을 추가하면 알람 목록에 나타납니다.</p>
+            <p class="sound-status" id="sound-status" aria-live="polite">가져온 소리는 이 기기에만 저장됩니다.</p>
+          </div>
+
+          <label class="volume-group" for="volume-control">
+            <span>알람 크기</span>
+            <output id="volume-value" for="volume-control">70%</output>
+            <input id="volume-control" type="range" min="0" max="100" step="1" value="70">
+          </label>
+        </aside>
+      </main>
+
+      <footer class="app-footer">
+        <span>한 번에 하나씩, 지금에 집중</span>
+        <span class="footer-indicator"><i aria-hidden="true"></i> 자동 저장</span>
+      </footer>
+    </div>
+    <button class="fullscreen-exit" id="fullscreen-exit" type="button" aria-label="전체화면 닫기">×</button>
+    <script src="app.js" defer></script>
+  </body>
+</html>

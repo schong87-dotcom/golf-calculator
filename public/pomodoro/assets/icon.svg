@@ -1,0 +1,7 @@
+<!-- 뽀모도로 앱의 작은 타이머 아이콘 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="4" y="4" width="56" height="56" rx="17" fill="#fffdf9" stroke="#d8d4cd" stroke-width="2"/>
+  <circle cx="32" cy="32" r="21" fill="#d72e3b"/>
+  <path d="M32 32V11a21 21 0 0 0-21 21z" fill="#fffdf9"/>
+  <circle cx="32" cy="32" r="8" fill="#fffdf9" stroke="#d8d4cd"/>
+</svg>

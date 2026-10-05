@@ -1007,6 +1007,9 @@ input::placeholder { color: #bbb; }
 .hub-card-meeting:hover { border-color: #8e5bd0; }
 .hub-card-meeting .hub-card-icon { background: #f0e8fa; }
 
+.hub-card-pomodoro:hover { border-color: #d93243; }
+.hub-card-pomodoro .hub-card-icon { background: #fbe8ea; color: #c92839; }
+
 .hub-card-icon {
   font-size: 30px;
   width: 54px;

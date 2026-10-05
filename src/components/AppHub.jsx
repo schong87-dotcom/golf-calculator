@@ -52,6 +52,15 @@ export default function AppHub({ username, onSelectGolf, onSelectMeeting, onLogo
             </span>
             <span className="hub-card-arrow">›</span>
           </a>
+
+          <a className="hub-card hub-card-pomodoro" href="/pomodoro/">
+            <span className="hub-card-icon">⏱</span>
+            <span className="hub-card-body">
+              <span className="hub-card-title">뽀모도로 타이머</span>
+              <span className="hub-card-desc">다이얼을 움직여 집중과 휴식 시간을 정합니다</span>
+            </span>
+            <span className="hub-card-arrow">›</span>
+          </a>
         </div>
       </main>
     </div>
