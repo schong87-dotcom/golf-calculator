@@ -13,6 +13,10 @@ const questions = [
     options: [{ id: 'a', label: SECRET, correct: true }, { id: 'b', label: '오답보기', correct: false }],
   },
   { id: 'q2', type: 'list', prompt: '쓰세요', points: 1, slots: 3, answers: [{ value: `${SECRET}목록`, aliases: ['별칭_ZQX'] }] },
+  {
+    id: 'q3', type: 'multi', prompt: '여러 개 고르세요', points: 1, pick: 2,
+    options: [{ id: 'm1', label: '가', correct: true }, { id: 'm2', label: '나', correct: false }, { id: 'm3', label: '다', correct: true }],
+  },
 ];
 
 let A, B, anon, quiz, session;
@@ -89,7 +93,7 @@ test('대기 중 상태 — 내 이름이 보이고 문제는 없다', async () 
   assert.equal(stranger.me, null);
 });
 
-test('문제가 열려도 정답은 내려가지 않는다 (객관식, 목록형)', async () => {
+test('문제가 열려도 정답은 내려가지 않는다 (객관식, 목록형, 여러 개 고르기)', async () => {
   await hostApply(A, { status: 'open', current_index: 0 });
   const st = await rpc('quiz_player_state', { p_code: session.code, p_token: token });
   assert.deepEqual(st.question.options, [{ id: 'a', label: SECRET }, { id: 'b', label: '오답보기' }]);
@@ -100,6 +104,12 @@ test('문제가 열려도 정답은 내려가지 않는다 (객관식, 목록형
   assert.equal(st2.question.slots, 3);
   const raw = JSON.stringify(st2);
   assert.ok(!raw.includes(SECRET) && !raw.includes('별칭_ZQX') && !raw.includes('answers'), raw);
+
+  await hostApply(A, { current_index: 2 });
+  const st3 = await rpc('quiz_player_state', { p_code: session.code, p_token: token });
+  assert.equal(st3.question.pick, 2);
+  assert.deepEqual(st3.question.options, [{ id: 'm1', label: '가' }, { id: 'm2', label: '나' }, { id: 'm3', label: '다' }]);
+  assert.ok(!JSON.stringify(st3).includes('correct'), '여러 개 고르기 정답 표시가 새면 안 된다');
   await hostApply(A, { current_index: 0 });
 });
 

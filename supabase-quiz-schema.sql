@@ -94,8 +94,8 @@ create policy "host reads quiz_responses" on quiz_responses for select to authen
 create or replace function quiz_public_question(q jsonb)
 returns jsonb language sql immutable set search_path = public, pg_temp as $$
   select jsonb_strip_nulls(jsonb_build_object(
-    'id', q->'id', 'type', q->'type', 'prompt', q->'prompt', 'points', q->'points', 'slots', q->'slots',
-    'options', case when q->>'type' = 'choice' then (
+    'id', q->'id', 'type', q->'type', 'prompt', q->'prompt', 'points', q->'points', 'slots', q->'slots', 'pick', q->'pick',
+    'options', case when q->>'type' in ('choice', 'multi') then (
       select coalesce(jsonb_agg(jsonb_build_object('id', o->'id', 'label', o->'label') order by n), '[]'::jsonb)
       from jsonb_array_elements(q->'options') with ordinality as t(o, n)
     ) end
