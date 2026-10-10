@@ -26,7 +26,8 @@ function findItem(items, key) {
 
 export function isScored(question, accepts = []) {
   switch (question.type) {
-    case 'choice': return (question.options || []).some(o => o.correct);
+    case 'choice':
+    case 'multi': return (question.options || []).some(o => o.correct);
     case 'yesno': return question.answer === 'yes' || question.answer === 'no';
     case 'text':
     case 'list': return answerItems(question, accepts).length > 0;
@@ -63,6 +64,19 @@ export function gradeAnswer(question, answer, accepts = []) {
     };
   }
 
+  if (question.type === 'multi') {
+    const options = question.options || [];
+    const valid = new Set(options.map(o => o.id));
+    const chosen = new Set([...new Set(answer.optionIds || [])].filter(id => valid.has(id)).slice(0, question.pick || undefined));
+    const hits = options.filter(o => o.correct && chosen.has(o.id));
+    return {
+      ...base,
+      correct: scored ? hits.length > 0 : null,
+      points: scored ? hits.length * points : 0,
+      matched: hits.map(o => o.label),
+    };
+  }
+
   let correct = false;
   let matched = [];
   let unmatched = [];
@@ -96,7 +110,8 @@ export function gradeQuestion(question, participants, responses, accepts = []) {
   for (const p of participants) {
     const r = byPid.get(p.id);
     const g = gradeAnswer(question, r?.answer, accepts);
-    results[p.id] = question.type === 'list'
+    const counted = question.type === 'list' || question.type === 'multi';
+    results[p.id] = counted
       ? { correct: g.correct, points: g.points, matched: g.matched }
       : { correct: g.correct, points: g.points };
 
@@ -107,6 +122,9 @@ export function gradeQuestion(question, participants, responses, accepts = []) {
     if (r) {
       if (question.type === 'choice' && r.answer.optionId in counts) counts[r.answer.optionId] += 1;
       if (question.type === 'yesno' && r.answer.value in counts) counts[r.answer.value] += 1;
+      if (question.type === 'multi') {
+        for (const id of new Set(r.answer.optionIds || [])) if (id in counts) counts[id] += 1;
+      }
       if (question.type === 'text' || question.type === 'list') {
         for (const label of g.matched) if (label in counts) counts[label] += 1;
         for (const raw of g.unmatched) {
@@ -116,7 +134,7 @@ export function gradeQuestion(question, participants, responses, accepts = []) {
           unmatched.set(key, u);
         }
       }
-      if (question.type === 'list') {
+      if (counted) {
         listRows.push({ id: p.id, name: p.name, count: g.matched.length, submittedAt: r.submitted_at });
       }
     }
@@ -135,7 +153,9 @@ export function gradeQuestion(question, participants, responses, accepts = []) {
 }
 
 function initialCounts(question, accepts) {
-  if (question.type === 'choice') return Object.fromEntries((question.options || []).map(o => [o.id, 0]));
+  if (question.type === 'choice' || question.type === 'multi') {
+    return Object.fromEntries((question.options || []).map(o => [o.id, 0]));
+  }
   if (question.type === 'yesno') return { yes: 0, no: 0 };
   return Object.fromEntries(answerItems(question, accepts).map(it => [it.label, 0]));
 }
@@ -154,7 +174,7 @@ export function rankParticipants(participants, resultsByPid) {
 // 수강생 폰에 내려갈 공개 내용. 정답만 담고 명단은 넣지 않는다
 export function buildReveal(question, accepts = []) {
   const base = { questionId: question.id, type: question.type, scored: isScored(question, accepts) };
-  if (question.type === 'choice') return { ...base, correctOptionIds: (question.options || []).filter(o => o.correct).map(o => o.id) };
+  if (question.type === 'choice' || question.type === 'multi') return { ...base, correctOptionIds: (question.options || []).filter(o => o.correct).map(o => o.id) };
   if (question.type === 'yesno') return { ...base, answer: question.answer ?? null };
   return { ...base, answers: answerItems(question, accepts).map(it => it.label) };
 }

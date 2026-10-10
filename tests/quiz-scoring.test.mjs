@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {
   normalizeAnswer, gradeAnswer, gradeQuestion, rankParticipants, isScored, buildReveal, applyGrade,
 } from '../src/quiz/scoring.js';
-import { newQuestion, validateQuiz, makeCode, cleanQuiz, toEditable } from '../src/quiz/model.js';
+import { newQuestion, validateQuiz, makeCode, cleanQuiz, toEditable, toggleSelection } from '../src/quiz/model.js';
 
 const choiceQ = {
   id: 'q1', type: 'choice', prompt: '수도는?', points: 1,
@@ -284,6 +284,96 @@ describe('편집기 다른 표기 입력', () => {
   });
   test('불러올 때는 다시 쉼표 글로', () => {
     assert.equal(toEditable({ questions: [textQ] }).questions[0].answers[0].aliasText, 'New York, NYC');
+  });
+});
+
+const multiQ = {
+  id: 'q5', type: 'multi', prompt: '과일 3개를 고르세요', points: 1, pick: 3,
+  options: [
+    { id: 'o1', label: '사과', correct: true }, { id: 'o2', label: '당근', correct: false },
+    { id: 'o3', label: '바나나', correct: true }, { id: 'o4', label: '배추', correct: false },
+    { id: 'o5', label: '포도', correct: true }, { id: 'o6', label: '오이', correct: false },
+  ],
+};
+
+describe('여러 개 고르기 채점', () => {
+  test('맞게 고른 개수 × 개당 배점, 맞춘 답은 보기 순서로', () => {
+    const r = gradeAnswer(multiQ, { optionIds: ['o5', 'o2', 'o1'] });
+    assert.equal(r.points, 2);
+    assert.equal(r.correct, true);
+    assert.deepEqual(r.matched, ['사과', '포도']);
+  });
+  test('하나도 못 맞추면 오답 0점', () => {
+    assert.deepEqual(pick(gradeAnswer(multiQ, { optionIds: ['o2', 'o4', 'o6'] })), { answered: true, correct: false, points: 0 });
+  });
+  test('같은 보기 중복, 없는 보기, 고를 개수를 넘는 선택은 세지 않는다', () => {
+    const r = gradeAnswer(multiQ, { optionIds: ['o1', 'o1', 'zz', 'o2', 'o3', 'o5'] });
+    assert.deepEqual(r.matched, ['사과', '바나나']);
+    assert.equal(r.points, 2);
+  });
+  test('개당 배점 2점이면 3개 맞춰 6점', () => {
+    assert.equal(gradeAnswer({ ...multiQ, points: 2 }, { optionIds: ['o1', 'o3', 'o5'] }).points, 6);
+  });
+  test('정답 보기를 지정하지 않으면 채점하지 않는다', () => {
+    const poll = { ...multiQ, options: multiQ.options.map(o => ({ ...o, correct: false })) };
+    assert.equal(isScored(poll), false);
+    assert.equal(gradeAnswer(poll, { optionIds: ['o1'] }).correct, null);
+  });
+  test('공개 화면 — 보기별 고른 사람 수, 맞춘 개수 순위(같으면 먼저 낸 사람)', () => {
+    const g = gradeQuestion(multiQ, P, [
+      resp('p1', 'q5', { optionIds: ['o1', 'o2', 'o4'] }, '2026-10-11T10:00:03Z'),
+      resp('p2', 'q5', { optionIds: ['o1', 'o3', 'o5'] }, '2026-10-11T10:00:05Z'),
+      resp('p3', 'q5', { optionIds: ['o3', 'o2', 'o6'] }, '2026-10-11T10:00:01Z'),
+    ]);
+    assert.deepEqual(g.counts, { o1: 2, o2: 2, o3: 2, o4: 1, o5: 1, o6: 1 });
+    assert.deepEqual(g.listRanking.map(r => [r.rank, r.name, r.count]), [[1, '나', 3], [2, '다', 1], [3, '가', 1]]);
+    assert.deepEqual(g.results.p2, { correct: true, points: 3, matched: ['사과', '바나나', '포도'] });
+    assert.deepEqual(g.noAnswerNames, ['라', '마']);
+  });
+  test('공개 내용은 정답 보기 id 만', () => {
+    assert.deepEqual(buildReveal(multiQ), { questionId: 'q5', type: 'multi', scored: true, correctOptionIds: ['o1', 'o3', 'o5'] });
+  });
+});
+
+describe('여러 개 고르기 선택 번호', () => {
+  test('누를 때마다 뒤에 붙어 1, 2, 3 번호가 된다', () => {
+    let s = [];
+    for (const id of ['a', 'b', 'c']) s = toggleSelection(s, id, 3);
+    assert.deepEqual(s, ['a', 'b', 'c']);
+  });
+  test('정해진 개수를 채우면 더 고르지 않는다', () => {
+    assert.deepEqual(toggleSelection(['a', 'b', 'c'], 'd', 3), ['a', 'b', 'c']);
+  });
+  test('다시 누르면 빠지고 뒤 번호가 하나씩 당겨진다', () => {
+    assert.deepEqual(toggleSelection(['a', 'b', 'c'], 'a', 3), ['b', 'c']);
+    assert.deepEqual(toggleSelection(['b', 'c'], 'a', 3), ['b', 'c', 'a']);
+  });
+});
+
+describe('여러 개 고르기 편집', () => {
+  let n = 0;
+  const id = () => `m${++n}`;
+  const filled = () => {
+    const q = { ...newQuestion('multi', id), prompt: '고르세요' };
+    q.options = q.options.map((o, i) => ({ ...o, label: `보기${i + 1}`, correct: i < 2 }));
+    return q;
+  };
+  test('새 문제는 보기 4개, 고를 개수 2', () => {
+    const q = newQuestion('multi', id);
+    assert.equal(q.options.length, 4);
+    assert.equal(q.pick, 2);
+  });
+  test('고를 개수가 0이거나 채운 보기 수보다 많으면 오류', () => {
+    assert.ok(validateQuiz({ title: 't', questions: [{ ...filled(), pick: 0 }] }).length >= 1);
+    assert.ok(validateQuiz({ title: 't', questions: [{ ...filled(), pick: 5 }] }).length >= 1);
+    assert.deepEqual(validateQuiz({ title: 't', questions: [{ ...filled(), pick: '4' }] }), []);
+  });
+  test('저장할 때 빈 보기를 빼고 고를 개수는 숫자로', () => {
+    const q = { ...filled(), pick: '2' };
+    q.options = [...q.options, { id: 'blank', label: ' ', correct: false }];
+    const c = cleanQuiz({ title: 't', questions: [q] }).questions[0];
+    assert.equal(c.options.length, 4);
+    assert.equal(c.pick, 2);
   });
 });
 
