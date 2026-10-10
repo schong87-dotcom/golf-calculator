@@ -346,3 +346,55 @@ App은 `if (!username) return <LoginPage />`라서, 세션은 생겼는데 화�
 - clone에는 `.env`가 없어 기존 골프·모임 E2E가 `readFileSync('.env')`에서 멈춘다. 이 테스트들은 Supabase를 전부 가짜로 대체하므로
   `VITE_SUPABASE_URL=https://cgkocnezpitydxrflxom.supabase.co VITE_SUPABASE_ANON_KEY=test-only-dummy-key npm run test:e2e` 로 돌리면 된다.
 - 린트는 이번 변경 전부터 96건(대부분 `public/game/js`)이었다. 이북리더기 파일은 0건.
+
+## 2026-10-11 퀴즈게임 추가
+
+### 결정 — 허브 안의 두 번째 Vite 페이지 `/quiz/` (허브 React 화면 전환이 아니다)
+
+수강생은 QR 주소로 바로 들어와야 하고 로그인 화면을 거치면 안 된다. 허브 `App.jsx`는 로그인 전에는 무조건 로그인 화면이라
+`quiz/index.html`을 Vite 두 번째 입력(`build.rolldownOptions.input`, Vite 8은 `rollupOptions`가 폐지 예정)으로 따로 둔다.
+같은 오리진이라 강사는 허브에서 한 로그인을 그대로 쓴다. 정적 앱(game, pomodoro)과 달리 번들러를 타므로 dev 재작성 플러그인은 필요 없다.
+
+### 결정 — 수강생은 익명 로그인이 아니라 토큰 함수로 들어온다
+
+Supabase 익명 로그인은 IP당 시간당 30회 한도가 걸려 있다. 강의실은 같은 와이파이(공인 IP 하나)라 30명째부터 막힌다.
+그래서 수강생은 로그인 없이 `quiz_join`(이름 → 토큰), `quiz_player_state`, `quiz_submit` 세 함수로만 접근하고,
+토큰은 해시(sha256)만 저장한다. 네 테이블은 RLS로 익명 접근 0행, 강사는 본인 세션만.
+
+### 결정 — 채점은 강사 브라우저가 하고 점수와 공개 내용을 한 번에 올린다
+
+채점 규칙(표기 정리, 별칭, 중복 제거, 인정)을 SQL과 JS 두 곳에 두면 갈라진다. 그래서 `src/quiz/scoring.js` 한 곳에 두고 단위 테스트한다.
+강사 화면이 공개 순간 응답을 다시 읽어 채점하고 `quiz_host_apply(세션, 상태, 점수)`로 한 트랜잭션에 올린다(security invoker라 RLS가 본인 세션만 허용).
+라이브형이라 강사 화면이 항상 떠 있으므로 가능한 구조다.
+
+### 결정 — 원클릭 인정은 그 진행에만 남긴다
+
+`quiz_sessions.accepts`에만 들어가고 원래 퀴즈(`quiz_quizzes`)에는 반영하지 않는다. 한 강의에서 너그럽게 인정한 답이
+다음 강의의 정답이 되지 않게 하려는 기본값이다. 사용자가 원하면 퀴즈에도 넣도록 바꿀 수 있다.
+
+### 실시간 설계
+
+- 신호만 보내고 받는 쪽이 RPC로 다시 읽는다. 내용은 늘 서버에서 오므로 채널이 공개여도 새는 것이 없다.
+- 채널 둘: `quiz-<코드>`(수강생 전원), `quiz-host-<코드>`(강사). 수강생 제출 신호가 다른 수강생 폰을 깨우지 않게 나눴다.
+- 보내는 쪽은 `channel.httpSend()`(REST)라 채널에 들어가지 않는다. realtime-js 2.104에 있다.
+- 신호가 빠져도 수강생은 8초(연결 안 되면 2.5초), 강사는 5초(2초)마다 다시 읽는다.
+
+### 실DB 테스트 방법
+
+- 로컬 Supabase(Docker)를 쓰려 했으나 이 맥의 Docker Desktop이 「unable to start」로 뜨지 않았다. 운영 프로젝트에 `quiz_` 테이블만 추가하고 거기서 테스트한다.
+- 테스트 강사는 `signInAnonymously({ options: { data: { quiz_test: ... } } })`로 만들고, 끝나면
+  `supabase db query --linked --project-ref <ref> "delete from auth.users where is_anonymous and raw_user_meta_data ? 'quiz_test'"`로 그 표식이 있는 계정만 지운다(퀴즈 행은 연쇄 삭제).
+- `supabase db query`는 `--linked`와 `--project-ref`를 함께 줘야 한다. 실행하면 `supabase/.temp/`가 생겨 `.gitignore`에 넣었다.
+- 키체인 토큰을 직접 읽는 방식은 자동 모드 권한에서 막혔다. CLI가 로그인돼 있으면 위 명령으로 충분하다.
+
+### ⚠️ 함정 — 정답 유출 검사를 시각으로 자르면 간헐 실패한다
+
+「다음 문제」를 누르기 직전 수강생 화면이 앞 문제의 공개 결과(`"correct"` 포함)를 한 번 더 읽고, 그 응답이 다음 문제 검사 구간에 섞였다.
+3회 중 2회 실패, 1회 통과. 검사 대상을 「그 문제 문장이 든 응답」으로 거르니 3회 연속 통과했다. 유출이 아니라 검사 범위 문제였다.
+검사가 헛돌지 않는지도 함께 본다 — 문제마다 응답 5건 이상 잡혔는지, 공개 뒤에는 같은 방법으로 정답이 잡히는지.
+
+### 그 밖의 함정
+
+- eslint `react-hooks/set-state-in-effect` — 효과 안에서 async 함수가 setState 하면 걸린다. `.then`으로 바꾸면 통과한다.
+- vitest 등 새 개발 도구는 `@types/node` 22 이상을 요구한다(이번에는 vitest를 쓰지 않고 기존 `node --test`를 썼다).
+- 작업은 `~/dev/2026-10-11_app-hub-quiz`(로컬 clone)에서 했다. 구글 드라이브 폴더는 git이 깨진 이력이 있다.

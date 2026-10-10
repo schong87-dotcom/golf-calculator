@@ -44,6 +44,8 @@ Supabase 프로젝트 ref가 같으니 세션 키(`sb-<ref>-auth-token`)도 자�
 │       ├── supabase-config.js  # 게임 쪽 Supabase 접속 정보 (하드코딩)
 │       ├── auth.js         #   허브가 만든 세션을 복원만 함 (로그인 화면 없음)
 │       └── ...
+├── quiz/index.html         # 퀴즈게임 페이지(/quiz/) — Vite 두 번째 입력. 코드는 src/quiz/
+├── supabase-quiz-schema.sql # 퀴즈게임 테이블 4개, RLS, 수강생 함수
 ├── public/reader/          # 이북리더기 배포본 (TXT·MD·PDF, 쪽 넘김·목차·메모 — 원본은 AI스터디/2026-09-18_이북리더기)
 ├── supabase-schema.sql     # 골프·모임 테이블 (current_round, rounds, current_meeting, meetings)
 ├── tests/                  # 단위 테스트(node --test) + tests/e2e/ 브라우저 테스트(Playwright)
@@ -61,6 +63,8 @@ npm run dev     # http://localhost:5173/
 npm run build   # dist/ (dist/game/ 포함)
 npm test        # 단위 테스트 (keepalive, 모임 정산 모델·정산 계산)
 npm run test:e2e  # 브라우저 테스트 — Supabase를 가짜로 대체하므로 실제 DB에 쓰지 않음
+npm run test:quiz # 퀴즈게임 실DB 테스트(권한 12개 + 강사 1명, 수강생 5명 전체 흐름)
+                  # 실제 Supabase에 quiz_test 표식을 단 익명 강사를 만들고 끝나면 그 계정만 지운다
                   # 이북리더기는 tests/e2e/reader.spec.mjs (구글 드라이브·GIS도 가짜로 대체)
 ```
 
@@ -73,6 +77,7 @@ npm run test:e2e  # 브라우저 테스트 — Supabase를 가짜로 대체하�
   - `current_meeting` — 모임: 작업 중인 모임 (사용자당 1행)
   - `meetings` — 모임: 저장된 모임 히스토리
   - `game_records` — 게임: 게임별 기록
+  - `quiz_quizzes`, `quiz_sessions`, `quiz_participants`, `quiz_responses` — 퀴즈게임 (아래 「퀴즈게임」 절)
 - 로그인은 **구글 OAuth**와 **비회원 입장(Supabase 익명 로그인)** 두 가지입니다. 게임에 있던 이름+비밀번호 로그인은 통합하면서 제거했습니다.
   - 비회원은 이메일 없는 익명 계정(`auth.users.is_anonymous = true`)이라 RLS가 그대로 적용되어 자기 기록만 봅니다.
     화면에는 이름 대신 「비회원」으로 나옵니다. 세션이 그 브라우저에만 있어서 **로그아웃하면 그 기록으로 돌아올 수 없고**,
@@ -117,6 +122,23 @@ curl -X POST "https://api.supabase.com/v1/projects/cgkocnezpitydxrflxom/restore"
   -H "Authorization: Bearer $(security find-generic-password -s 'Supabase CLI' -w)" \
   -H "Content-Type: application/json" -d '{}'
 ```
+
+## 퀴즈게임 (/quiz/)
+
+슬라이도처럼 강사가 문제를 띄우고 수강생이 QR로 들어와 폰으로 답한다. 강사가 한 문제씩 넘기는 라이브형이다.
+
+- **강사** — 허브에서 로그인(구글 또는 비회원) 뒤 「퀴즈게임」 카드. 퀴즈 만들기 → 진행 시작 → 빔프로젝터에 QR과 6자리 입장코드.
+  문제 유형은 객관식(보기 2개부터 개수 제한 없음), 예/아니오, 주관식, 목록형(「관광도시 N개 쓰기」, 맞춘 개수만큼 점수).
+  정답은 미리 넣어 두고 「정답 공개」를 눌러야 수강생에게 간다. 정답을 비워 두면 채점 없는 설문이 된다.
+- **수강생** — 로그인 없음. `/quiz/?c=입장코드`에서 이름만 넣는다. 기기에 토큰이 남아 새로고침해도 같은 사람이다.
+  Supabase 익명 로그인을 쓰지 않는 이유는 IP당 시간당 30회 한도 때문이다. 같은 와이파이의 강의실이면 30명에서 막힌다.
+- **채점** — 띄어쓰기, 대소문자, 문장부호를 무시한다(`src/quiz/scoring.js`). 목록형은 같은 답 중복을 한 번만 센다.
+  마감 뒤 「정답 목록에 없는 답」을 많이 쓴 순으로 보여 주고, 「새 정답으로 인정」 또는 「다른 표기로 묶기」 한 번에 전원 재채점한다.
+  인정한 답은 그 진행에만 남고 원래 퀴즈에는 들어가지 않는다.
+- **보안** — 수강생은 테이블을 직접 읽지 못하고(RLS) 함수 세 개(`quiz_join`, `quiz_player_state`, `quiz_submit`)로만 접근한다.
+  문제는 허용 목록 방식(`quiz_public_question`)으로 정답 필드를 빼고 내려간다. 강사는 본인 퀴즈와 세션만 본다.
+- **실시간** — 바뀌면 Realtime 채널로 신호만 보내고(`httpSend`) 받는 쪽이 다시 읽는다. 수강생 채널 `quiz-<코드>`와
+  강사 채널 `quiz-host-<코드>`를 나눠 한 사람의 제출이 다른 수강생 폰을 깨우지 않는다. 신호가 빠져도 몇 초마다 다시 읽는다.
 
 ## 배포
 
