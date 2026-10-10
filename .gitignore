@@ -7,3 +7,6 @@ dist
 00_프롬프트/
 test-results/
 playwright-report/
+
+# Supabase CLI가 만드는 연결 정보
+supabase/.temp/
