@@ -191,4 +191,4 @@
 - [x] 모델, 채점, 정답 거르는 함수(`quiz_public_question`에 multi 보기와 pick 추가) 운영 DB 적용
 - [x] 편집기, 수강생 화면, 진행 화면
 - [x] `npm test` 80 pass, `npm run test:e2e` 43 pass, `npm run test:quiz-db` 12 pass, 실DB E2E 3회 연속 pass, 빌드, lint 0건
-- [ ] 운영 배포와 운영 주소 E2E
+- [x] `vercel --prod` 운영 배포, 운영 번들에 새 문구 확인, 운영 주소 E2E 통과, 테스트 계정 0개
