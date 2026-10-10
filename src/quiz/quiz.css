@@ -185,6 +185,14 @@ textarea.qz-input { resize: vertical; line-height: 1.5; }
   font-size: 18px; font-weight: 700; text-align: left; cursor: pointer; color: #111827;
 }
 .qz-choice.is-selected { border-color: var(--qz-accent); background: var(--qz-accent-soft); }
+.qz-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.qz-multi { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 10px 12px; font-size: 16px; }
+.qz-order {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--qz-line);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; color: white;
+}
+.qz-multi.is-selected .qz-order { background: var(--qz-accent); border-color: var(--qz-accent); }
+.qz-pick-count { font-size: 15px; font-weight: 800; color: var(--qz-accent-dark); }
 .qz-answer .qz-primary { min-height: 52px; font-size: 18px; margin-top: 4px; }
 .qz-verdict { font-size: 34px; font-weight: 900; color: var(--qz-bad); }
 .qz-verdict.is-correct { color: var(--qz-good); }

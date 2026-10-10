@@ -9,6 +9,7 @@ test.afterAll(() => {
 });
 
 const NAMES = ['가영', '나래', '다솜', '라희', '마루'];
+const FRUITS = ['사과', '당근', '바나나', '배추', '포도', '오이'];
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
 
 // 정답 유출 검사용: 수강생 화면이 받은 RPC 응답 본문을 모은다.
@@ -38,12 +39,18 @@ async function writeAnswers(page, values) {
   await expect(page.getByText('제출했습니다')).toBeVisible();
 }
 
+async function pickAll(page, labels) {
+  for (const l of labels) await page.getByRole('button', { name: l, exact: true }).click();
+  await page.getByRole('button', { name: '제출' }).click();
+  await expect(page.getByText('제출했습니다')).toBeVisible();
+}
+
 const names = (page, id) => page.getByTestId(id).getByRole('listitem');
 const rows = (page, id) => page.getByTestId(id).locator('[data-name]').evaluateAll(
   els => els.map(e => [e.dataset.rank, e.dataset.name, e.dataset.value]),
 );
 
-test('강사가 4유형 퀴즈를 만들고 수강생 5명이 QR 주소로 참여해 끝까지 진행한다', async ({ browser }) => {
+test('강사가 5유형 퀴즈를 만들고 수강생 5명이 QR 주소로 참여해 끝까지 진행한다', async ({ browser }) => {
   test.setTimeout(300_000);
   const host = await makeHost('e2e');
   const hostCtx = await browser.newContext();
@@ -53,7 +60,7 @@ test('강사가 4유형 퀴즈를 만들고 수강생 5명이 QR 주소로 참�
   );
   const h = await hostCtx.newPage();
 
-  await test.step('R1 R4 — 편집기로 4유형 문제를 만들고 저장, 새로고침 뒤 그대로', async () => {
+  await test.step('R1 R4 — 편집기로 5유형 문제를 만들고 저장, 새로고침 뒤 그대로', async () => {
     await h.goto('/quiz/');
     await expect(h.getByRole('heading', { name: '내 퀴즈' })).toBeVisible();
     await h.getByRole('button', { name: '새 퀴즈 만들기' }).click();
@@ -91,6 +98,15 @@ test('강사가 4유형 퀴즈를 만들고 수강생 5명이 QR 주소로 참�
       if (alias) await q4.getByLabel(`정답 ${i + 1} 다른 표기`).fill(alias);
     }
 
+    await h.getByRole('button', { name: '+ 여러 개 고르기' }).click();
+    const q5 = h.getByRole('region', { name: '5번 문제' });
+    await q5.getByLabel('문제', { exact: true }).fill('과일 3개를 고르세요');
+    await q5.getByRole('button', { name: '+ 보기 추가' }).click();
+    await q5.getByRole('button', { name: '+ 보기 추가' }).click();
+    for (const [i, v] of FRUITS.entries()) await q5.getByLabel(`${i + 1}번 보기`, { exact: true }).fill(v);
+    for (const i of [1, 3, 5]) await q5.getByLabel(`${i}번 보기 정답`).check();
+    await q5.getByLabel('고를 개수').fill('3');
+
     await h.getByRole('button', { name: '저장', exact: true }).click();
     await expect(h.getByText('저장했습니다')).toBeVisible();
     await expect(h).toHaveURL(/\?edit=[0-9a-f-]{36}$/);
@@ -103,13 +119,18 @@ test('강사가 4유형 퀴즈를 만들고 수강생 5명이 QR 주소로 참�
     await expect(h.getByRole('region', { name: '3번 문제' }).getByLabel('정답 1 다른 표기')).toHaveValue('New York, NYC, 빅애플');
     await expect(h.getByRole('region', { name: '4번 문제' }).getByLabel('입력칸 수')).toHaveValue('4');
     await expect(h.getByRole('region', { name: '4번 문제' }).getByLabel('정답 5', { exact: true })).toHaveValue('바르셀로나');
+    const r5 = h.getByRole('region', { name: '5번 문제' });
+    await expect(r5.getByLabel('고를 개수')).toHaveValue('3');
+    await expect(r5.getByLabel('6번 보기', { exact: true })).toHaveValue('오이');
+    await expect(r5.getByLabel('3번 보기 정답')).toBeChecked();
+    await expect(r5.getByLabel('2번 보기 정답')).not.toBeChecked();
   });
 
   let joinUrl;
   await test.step('R2 — 진행 시작하면 QR과 6자리 입장코드', async () => {
     await h.getByRole('button', { name: '목록으로' }).click();
     const row = h.getByRole('listitem').filter({ hasText: 'E2E 퀴즈' });
-    await expect(row).toContainText('문제 4개');
+    await expect(row).toContainText('문제 5개');
     await row.getByRole('button', { name: '진행 시작' }).click();
     joinUrl = await h.getByTestId('join-url').textContent();
     expect(joinUrl).toMatch(/\/quiz\/\?c=[0-9]{6}$/);
@@ -229,14 +250,55 @@ test('강사가 4유형 퀴즈를 만들고 수강생 5명이 QR 주소로 참�
     await expect(P['가영'].getByText('맞춘 답 파리, 런던, 서울 (3개)')).toBeVisible();
   });
 
+  await test.step('R13 — 여러 개 고르기: 누른 순서대로 번호, 개수 넘치면 막힘, 다시 누르면 빠지고 번호 당김', async () => {
+    await h.getByRole('button', { name: '다음 문제' }).click();
+    const g = P['가영'];
+    await expect(g.getByText('과일 3개를 고르세요')).toBeVisible();
+    const opt = label => g.getByRole('button', { name: label, exact: true });
+    const order = label => opt(label).getAttribute('data-order');
+    const orders = labels => Promise.all(labels.map(order));
+
+    for (const f of ['사과', '바나나', '포도']) await opt(f).click();
+    expect(await orders(['사과', '바나나', '포도'])).toEqual(['1', '2', '3']);
+    await expect(g.getByText('선택 3 / 3')).toBeVisible();
+    await opt('당근').click();
+    expect(await order('당근')).toBe('');
+    await expect(g.getByText('3개까지 고를 수 있습니다')).toBeVisible();
+    await opt('사과').click();
+    expect(await orders(['사과', '바나나', '포도'])).toEqual(['', '1', '2']);
+    await expect(g.getByText('선택 2 / 3')).toBeVisible();
+    await expect(g.getByRole('button', { name: '제출' })).toBeDisabled();
+    await opt('사과').click();
+    expect(await order('사과')).toBe('3');
+    await g.getByRole('button', { name: '제출' }).click();
+    await expect(g.getByText('제출했습니다')).toBeVisible();
+
+    await pickAll(P['나래'], ['사과', '당근', '오이']);
+    await pickAll(P['다솜'], ['바나나', '포도', '배추']);
+    await pickAll(P['라희'], ['당근', '배추', '오이']);
+    await h.getByRole('button', { name: '마감' }).click();
+    await expect(P['마루'].getByText('마감되었습니다')).toBeVisible();
+    const q5 = bodiesWith('과일 3개를 고르세요');
+    expect(q5.length).toBeGreaterThanOrEqual(5);
+    expect(q5.join('\n')).not.toContain('"correct"');
+
+    await h.getByRole('button', { name: '정답 공개' }).click();
+    await expect.poll(() => rows(h, 'list-ranking')).toEqual([
+      ['1', '가영', '3'], ['2', '다솜', '2'], ['3', '나래', '1'], ['4', '라희', '0'],
+    ]);
+    await expect(names(h, 'names-none')).toHaveText(['마루']);
+    await expect(g.getByText('+3점')).toBeVisible();
+    await expect(g.getByText('맞춘 답 사과, 바나나, 포도 (3개)')).toBeVisible();
+  });
+
   await test.step('R10 — 최종 순위, 동점은 공동 순위, 수강생 폰에 내 점수와 순위', async () => {
     await h.getByRole('button', { name: '최종 결과' }).click();
     await expect.poll(() => rows(h, 'final-ranking')).toEqual([
-      ['1', '가영', '6'], ['2', '나래', '5'], ['3', '다솜', '2'], ['3', '라희', '2'], ['3', '마루', '2'],
+      ['1', '가영', '9'], ['2', '나래', '6'], ['3', '다솜', '4'], ['4', '라희', '2'], ['4', '마루', '2'],
     ]);
     await expect(P['라희'].getByText('퀴즈가 끝났습니다')).toBeVisible();
     await expect(P['라희'].getByText('내 점수 2점')).toBeVisible();
-    await expect(P['라희'].getByText('5명 중 3위')).toBeVisible();
+    await expect(P['라희'].getByText('5명 중 4위')).toBeVisible();
     await expect(P['가영'].getByText('5명 중 1위')).toBeVisible();
   });
 

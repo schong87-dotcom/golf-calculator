@@ -148,17 +148,19 @@ function Stage({ session, q, accepts, participants, responses, busy, showRanking
   const scored = isScored(q, accepts);
   const isLast = session.current_index >= session.questions.length - 1;
   const labels = (q.answers || []).map(a => a.value);
+  const counted = q.type === 'list' || q.type === 'multi';
 
   return (
     <section className="qz-stage">
       <p className="qz-stage-meta">
         <span>{session.current_index + 1} / {session.questions.length}</span>
         <span>{TYPE_LABELS[q.type]}</span>
-        <span>{q.type === 'list' ? `개당 ${q.points}점` : `${q.points}점`}</span>
+        <span>{counted ? `개당 ${q.points}점` : `${q.points}점`}</span>
+        {q.type === 'multi' && <span>{q.pick}개 고르기</span>}
       </p>
       <h1 className="qz-stage-prompt">{q.prompt}</h1>
 
-      {q.type === 'choice' && (
+      {(q.type === 'choice' || q.type === 'multi') && (
         <ol className="qz-stage-options">
           {q.options.map(o => (
             <li key={o.id} className={revealed && o.correct ? 'is-correct' : ''}>
@@ -195,7 +197,7 @@ function Stage({ session, q, accepts, participants, responses, busy, showRanking
 
       {revealed && !scored && <p className="qz-muted qz-center">정답을 정하지 않은 문제라 채점하지 않습니다.</p>}
 
-      {revealed && scored && q.type !== 'list' && (
+      {revealed && scored && !counted && (
         <div className="qz-namelists">
           <NameList title="맞춘 사람" testid="names-correct" names={grade.correctNames} tone="good" />
           <NameList title="틀린 사람" testid="names-wrong" names={grade.wrongNames} tone="bad" />
@@ -203,7 +205,7 @@ function Stage({ session, q, accepts, participants, responses, busy, showRanking
         </div>
       )}
 
-      {revealed && scored && q.type === 'list' && (
+      {revealed && scored && counted && (
         <div className="qz-namelists">
           <div className="qz-card qz-grow">
             <h2>맞춘 개수 순위</h2>

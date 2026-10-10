@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { joinQuiz, playerState, submitAnswer } from './api';
 import { hostTopic, ping, stateTopic, useLive, useSerial } from './live';
+import { toggleSelection } from './model';
 
 function readToken(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -162,6 +163,8 @@ function JoinForm({ code, session, onJoined }) {
 function AnswerForm({ question, onSubmit }) {
   const slots = question.type === 'list' ? question.slots : 1;
   const [choice, setChoice] = useState(null);
+  const [picked, setPicked] = useState([]);
+  const [full, setFull] = useState(false);
   const [texts, setTexts] = useState(() => Array(slots).fill(''));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -171,6 +174,14 @@ function AnswerForm({ question, onSubmit }) {
   if (question.type === 'yesno' && choice) answer = { value: choice };
   if (question.type === 'text' && texts[0].trim()) answer = { text: texts[0] };
   if (question.type === 'list' && texts.some(t => t.trim())) answer = { items: texts };
+  if (question.type === 'multi' && picked.length === question.pick) answer = { optionIds: picked };
+
+  // 다시 누르면 빠지고 번호가 당겨진다. 다 고른 뒤 새 보기를 누르면 그대로 두고 안내만 띄운다
+  const tap = id => {
+    const next = toggleSelection(picked, id, question.pick);
+    setFull(next === picked);
+    setPicked(next);
+  };
 
   const submit = async e => {
     e.preventDefault();
@@ -203,7 +214,29 @@ function AnswerForm({ question, onSubmit }) {
           ))}
         </div>
       )}
-      {!choices && texts.map((t, i) => (
+      {question.type === 'multi' && (
+        <>
+          <p className="qz-pick-count">선택 {picked.length} / {question.pick}</p>
+          <div className="qz-choices qz-grid">
+            {question.options.map(o => {
+              const n = picked.indexOf(o.id) + 1;
+              return (
+                <button
+                  key={o.id} type="button" aria-label={o.label} aria-pressed={n > 0} data-order={n || ''}
+                  className={`qz-choice qz-multi ${n ? 'is-selected' : ''}`} onClick={() => tap(o.id)}
+                >
+                  <span className="qz-order" aria-hidden="true">{n || ''}</span>
+                  <span>{o.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {full && (
+            <p className="qz-hint" role="status">{question.pick}개까지 고를 수 있습니다. 바꾸려면 고른 것을 다시 눌러 빼세요.</p>
+          )}
+        </>
+      )}
+      {!choices && question.type !== 'multi' && texts.map((t, i) => (
         <input
           key={i} className="qz-input" aria-label={`답 ${i + 1}`} value={t} maxLength={100}
           placeholder={slots > 1 ? `${i + 1}번째 답` : '답을 쓰세요'}
@@ -221,6 +254,9 @@ function answerLabel(question, answer) {
   if (question.type === 'choice') return question.options.find(o => o.id === answer.optionId)?.label ?? '';
   if (question.type === 'yesno') return answer.value === 'yes' ? '예' : '아니오';
   if (question.type === 'text') return answer.text;
+  if (question.type === 'multi') {
+    return (answer.optionIds || []).map(id => question.options.find(o => o.id === id)?.label).filter(Boolean).join(', ');
+  }
   return answer.items.filter(s => s.trim()).join(', ');
 }
 
@@ -230,7 +266,7 @@ function MyAnswer({ question, answer }) {
 }
 
 function correctText(question, reveal) {
-  if (question.type === 'choice') {
+  if (question.type === 'choice' || question.type === 'multi') {
     return question.options.filter(o => reveal.correctOptionIds.includes(o.id)).map(o => o.label).join(', ');
   }
   if (question.type === 'yesno') return reveal.answer === 'yes' ? '예' : '아니오';
@@ -251,7 +287,7 @@ function Result({ state }) {
       <p className={`qz-verdict ${myResult?.correct ? 'is-correct' : ''}`}>{verdict}</p>
       {reveal.scored && myAnswer && <p className="qz-points">+{myResult?.points ?? 0}점</p>}
       {reveal.scored && <p className="qz-correct">정답 {correctText(question, reveal)}</p>}
-      {question.type === 'list' && myAnswer && (
+      {(question.type === 'list' || question.type === 'multi') && myAnswer && (
         <p className="qz-matched">맞춘 답 {matched.length ? matched.join(', ') : '없음'} ({matched.length}개)</p>
       )}
       <MyAnswer question={question} answer={myAnswer} />

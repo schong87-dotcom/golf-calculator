@@ -102,7 +102,7 @@ function QuestionEditor({ q, index, total, onChange, onType, onMove, onRemove })
         <select id={`${q.id}-type`} value={q.type} onChange={e => onType(e.target.value)}>
           {Object.entries(TYPE_LABELS).map(([type, label]) => <option key={type} value={type}>{label}</option>)}
         </select>
-        <label htmlFor={`${q.id}-points`} className="qz-small">{q.type === 'list' ? '개당 배점' : '배점'}</label>
+        <label htmlFor={`${q.id}-points`} className="qz-small">{q.type === 'list' || q.type === 'multi' ? '개당 배점' : '배점'}</label>
         <input
           id={`${q.id}-points`} className="qz-num" type="number" min="0" value={q.points}
           onChange={e => onChange({ points: e.target.value })}
@@ -120,23 +120,38 @@ function QuestionEditor({ q, index, total, onChange, onType, onMove, onRemove })
           onChange={e => onChange({ prompt: e.target.value })}
         />
       </div>
-      {q.type === 'choice' && <ChoiceEditor q={q} onChange={onChange} />}
+      {(q.type === 'choice' || q.type === 'multi') && <ChoiceEditor q={q} onChange={onChange} />}
       {q.type === 'yesno' && <YesNoEditor q={q} onChange={onChange} />}
       {(q.type === 'text' || q.type === 'list') && <AnswersEditor q={q} onChange={onChange} />}
     </section>
   );
 }
 
+// 객관식(정답 하나, 동그라미)과 여러 개 고르기(정답 여러 개, 네모 + 고를 개수)가 같이 쓴다
 function ChoiceEditor({ q, onChange }) {
+  const multi = q.type === 'multi';
   const setOption = (j, patch) => onChange({ options: q.options.map((o, k) => (k === j ? { ...o, ...patch } : o)) });
-  const setCorrect = j => onChange({ options: q.options.map((o, k) => ({ ...o, correct: k === j })) });
+  const setCorrect = j => onChange({
+    options: q.options.map((o, k) => (multi ? (k === j ? { ...o, correct: !o.correct } : o) : { ...o, correct: k === j })),
+  });
   const hasCorrect = q.options.some(o => o.correct);
+  const correctCount = q.options.filter(o => o.correct).length;
   return (
     <div className="qz-options">
+      {multi && (
+        <div className="qz-inline">
+          <label htmlFor={`${q.id}-pick`}>고를 개수</label>
+          <input
+            id={`${q.id}-pick`} className="qz-num" type="number" min="1" max={q.options.length} value={q.pick}
+            onChange={e => onChange({ pick: e.target.value })}
+          />
+          <span className="qz-small">정답으로 체크한 보기 {correctCount}개</span>
+        </div>
+      )}
       {q.options.map((o, j) => (
         <div key={o.id} className="qz-option-row">
           <input
-            type="radio" name={`${q.id}-correct`} aria-label={`${j + 1}번 보기 정답`}
+            type={multi ? 'checkbox' : 'radio'} name={`${q.id}-correct`} aria-label={`${j + 1}번 보기 정답`}
             checked={o.correct} onChange={() => setCorrect(j)}
           />
           <input
@@ -160,7 +175,12 @@ function ChoiceEditor({ q, onChange }) {
           </button>
         )}
       </div>
-      <p className="qz-hint">왼쪽 동그라미로 정답을 고릅니다. 고르지 않으면 채점하지 않고 응답만 모읍니다.</p>
+      <p className="qz-hint">
+        {multi
+          ? '정답 보기를 모두 체크합니다. 수강생은 고를 개수만큼 누른 순서대로 번호를 붙여 고르고, 맞게 고른 개수만큼 점수를 받습니다. 고른 순서는 점수에 들어가지 않습니다.'
+          : '왼쪽 동그라미로 정답을 고릅니다.'}
+        {' '}정답을 고르지 않으면 채점하지 않고 응답만 모읍니다.
+      </p>
     </div>
   );
 }
