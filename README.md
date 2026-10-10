@@ -142,4 +142,11 @@ curl -X POST "https://api.supabase.com/v1/projects/cgkocnezpitydxrflxom/restore"
 
 ## 배포
 
-`main`에 push하면 Vercel(`golf-calculator`)이 자동 배포합니다.
+`main`에 push해도 **자동 배포되지 않습니다**(Git 연동 없음, 2026-09-25와 2026-10-11에 확인). 직접 올립니다.
+
+```bash
+# .vercel/project.json 이 golf-calculator(prj_eqHLlSM4baDoxtwiqVzsZ0v5nuGr)를 가리키는 폴더에서
+vercel --prod --yes          # 끝나면 golf-calculator-six.vercel.app 으로 연결(Aliased)된다
+curl -s https://golf-calculator-six.vercel.app/quiz/ | grep '<title>'   # 운영에 새 파일이 있는지 확인
+QUIZ_BASE_URL=https://golf-calculator-six.vercel.app npx playwright test -c playwright.quiz.config.mjs  # 운영 주소로 퀴즈 E2E
+```

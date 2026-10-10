@@ -169,5 +169,7 @@
 - [x] 강사 화면 (목록, 편집기, 진행 화면), 수강생 화면, 허브 카드
 - [x] `npm test` 67 pass, `npm run test:e2e` 43 pass, `npm run test:quiz-db` 12 pass, 실DB E2E 3회 연속 pass, 빌드 통과, 새 파일 lint 0건
 - [x] 테스트 계정 정리 확인 (quiz_test 표식 익명 계정 0개)
-- [ ] 커밋, 푸시, 운영 배포, 운영 번들 확인
+- [x] 커밋 6개, 푸시, `vercel --prod` 운영 배포(push 자동 배포 없음), 운영 번들에 퀴즈 함수명과 허브 카드 확인
+- [x] 운영 주소 `/`, `/quiz/`, `/game/`, `/reader/`, `/pomodoro/`, `/api/keepalive` 모두 200
+- [x] 운영 주소에 대고 퀴즈 E2E 전체 시나리오 통과 (`QUIZ_BASE_URL=... npx playwright test -c playwright.quiz.config.mjs`)
 - [ ] 실제 폰으로 QR 찍기 — 사용자 확인 (자동 판정 불가)
