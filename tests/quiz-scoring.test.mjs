@@ -3,9 +3,9 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  normalizeAnswer, gradeAnswer, gradeQuestion, rankParticipants, isScored,
+  normalizeAnswer, gradeAnswer, gradeQuestion, rankParticipants, isScored, buildReveal, applyGrade,
 } from '../src/quiz/scoring.js';
-import { newQuestion, validateQuiz, makeCode } from '../src/quiz/model.js';
+import { newQuestion, validateQuiz, makeCode, cleanQuiz, toEditable } from '../src/quiz/model.js';
 
 const choiceQ = {
   id: 'q1', type: 'choice', prompt: '수도는?', points: 1,
@@ -249,6 +249,41 @@ describe('문제 모델', () => {
     assert.equal(makeCode(() => 0), '000000');
     assert.equal(makeCode(() => 0.123456), '123456');
     assert.match(makeCode(), /^[0-9]{6}$/);
+  });
+});
+
+describe('공개 내용과 점수 반영', () => {
+  test('객관식 공개 내용은 정답 보기 id 만', () => {
+    assert.deepEqual(buildReveal(choiceQ), { questionId: 'q1', type: 'choice', scored: true, correctOptionIds: ['a'] });
+  });
+  test('목록형 공개 내용에 인정한 답이 들어가고 별칭은 빠진다', () => {
+    const r = buildReveal(listQ, [{ value: '서울', item: null }]);
+    assert.deepEqual(r.answers, ['파리', '런던', '뉴욕', '도쿄', '바르셀로나', '서울']);
+    assert.ok(!JSON.stringify(r).includes('Paris'));
+  });
+  test('앞 문제 결과에 이번 문제를 더해 총점과 순위를 낸다', () => {
+    const parts = [
+      { id: 'p1', name: '가', results: { q1: { correct: true, points: 1 } } },
+      { id: 'p2', name: '나', results: {} },
+    ];
+    const g = gradeQuestion(listQ, parts, [resp('p2', 'q4', { items: ['파리', '런던'] })]);
+    assert.deepEqual(applyGrade(parts, listQ, g).map(r => [r.id, r.score, r.rank]), [['p2', 2, 1], ['p1', 1, 2]]);
+  });
+});
+
+describe('편집기 다른 표기 입력', () => {
+  test('쉼표로 쓴 다른 표기를 배열로, 빈 보기와 빈 정답은 저장하지 않는다', () => {
+    const q = {
+      ...listQ,
+      answers: [{ value: ' 뉴욕 ', aliasText: 'New York, NYC ,, ' }, { value: '  ', aliasText: '' }],
+    };
+    const c = cleanQuiz({ title: ' t ', questions: [q, { ...choiceQ, options: [...choiceQ.options, { id: 'z', label: ' ', correct: false }] }] });
+    assert.deepEqual(c.questions[0].answers, [{ value: '뉴욕', aliases: ['New York', 'NYC'] }]);
+    assert.equal(c.questions[1].options.length, 3);
+    assert.equal(c.title, 't');
+  });
+  test('불러올 때는 다시 쉼표 글로', () => {
+    assert.equal(toEditable({ questions: [textQ] }).questions[0].answers[0].aliasText, 'New York, NYC');
   });
 });
 

@@ -57,12 +57,27 @@ export function cleanQuiz(quiz) {
       if (q.type === 'choice') c.options = q.options.filter(o => o.label.trim()).map(o => ({ ...o, label: o.label.trim() }));
       if (q.type === 'text' || q.type === 'list') {
         c.answers = q.answers
-          .map(a => ({ value: a.value.trim(), aliases: (a.aliases || []).map(s => s.trim()).filter(Boolean) }))
+          .map(a => ({ value: a.value.trim(), aliases: splitAliases(a) }))
           .filter(a => a.value);
       }
       if (q.type === 'list') c.slots = Number(q.slots);
       return c;
     }),
+  };
+}
+
+// 편집기에서는 다른 표기를 쉼표로 이어 쓴 글(aliasText)로 다룬다
+function splitAliases(a) {
+  const list = a.aliasText != null ? a.aliasText.split(',') : (a.aliases || []);
+  return list.map(s => s.trim()).filter(Boolean);
+}
+
+export function toEditable(quiz) {
+  return {
+    ...quiz,
+    questions: (quiz.questions || []).map(q => (q.answers
+      ? { ...q, answers: q.answers.map(a => ({ value: a.value, aliasText: (a.aliases || []).join(', ') })) }
+      : q)),
   };
 }
 

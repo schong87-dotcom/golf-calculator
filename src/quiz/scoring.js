@@ -150,3 +150,17 @@ export function rankParticipants(participants, resultsByPid) {
   rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ko'));
   return rows.map(r => ({ ...r, rank: 1 + rows.filter(o => o.score > r.score).length }));
 }
+
+// 수강생 폰에 내려갈 공개 내용. 정답만 담고 명단은 넣지 않는다
+export function buildReveal(question, accepts = []) {
+  const base = { questionId: question.id, type: question.type, scored: isScored(question, accepts) };
+  if (question.type === 'choice') return { ...base, correctOptionIds: (question.options || []).filter(o => o.correct).map(o => o.id) };
+  if (question.type === 'yesno') return { ...base, answer: question.answer ?? null };
+  return { ...base, answers: answerItems(question, accepts).map(it => it.label) };
+}
+
+// 한 문제의 채점 결과를 참가자별 누적 결과에 합치고 순위를 다시 매긴다 (quiz_host_apply 의 p_scores 모양)
+export function applyGrade(participants, question, grade) {
+  const results = Object.fromEntries(participants.map(p => [p.id, { ...(p.results || {}), [question.id]: grade.results[p.id] }]));
+  return rankParticipants(participants, results).map(r => ({ id: r.id, score: r.score, rank: r.rank, results: results[r.id] }));
+}
