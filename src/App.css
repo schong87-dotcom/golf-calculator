@@ -1010,6 +1010,9 @@ input::placeholder { color: #bbb; }
 .hub-card-pomodoro:hover { border-color: #d93243; }
 .hub-card-pomodoro .hub-card-icon { background: #fbe8ea; color: #c92839; }
 
+.hub-card-quiz:hover { border-color: #0f766e; }
+.hub-card-quiz .hub-card-icon { background: #ddf3f0; }
+
 .hub-card-icon {
   font-size: 30px;
   width: 54px;

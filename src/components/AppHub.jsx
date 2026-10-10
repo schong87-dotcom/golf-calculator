@@ -61,6 +61,15 @@ export default function AppHub({ username, onSelectGolf, onSelectMeeting, onLogo
             </span>
             <span className="hub-card-arrow">›</span>
           </a>
+
+          <a className="hub-card hub-card-quiz" href="/quiz/">
+            <span className="hub-card-icon">🙋</span>
+            <span className="hub-card-body">
+              <span className="hub-card-title">퀴즈게임</span>
+              <span className="hub-card-desc">수강생이 QR로 들어와 폰으로 답하는 실시간 퀴즈</span>
+            </span>
+            <span className="hub-card-arrow">›</span>
+          </a>
         </div>
       </main>
     </div>
