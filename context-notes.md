@@ -398,3 +398,10 @@ Supabase 익명 로그인은 IP당 시간당 30회 한도가 걸려 있다. 강�
 - eslint `react-hooks/set-state-in-effect` — 효과 안에서 async 함수가 setState 하면 걸린다. `.then`으로 바꾸면 통과한다.
 - vitest 등 새 개발 도구는 `@types/node` 22 이상을 요구한다(이번에는 vitest를 쓰지 않고 기존 `node --test`를 썼다).
 - 작업은 `~/dev/2026-10-11_app-hub-quiz`(로컬 clone)에서 했다. 구글 드라이브 폴더는 git이 깨진 이력이 있다.
+
+### 2026-10-11 여러 개 고르기 유형 (type `multi`)
+
+- 답 모양 `{ optionIds: [누른 순서] }`. 번호는 배열 자리 + 1이라 빼면 자동으로 당겨진다(`toggleSelection`). 순서는 저장만 하고 점수에는 안 쓴다.
+  순위까지 맞추는 채점을 원하면 저장된 순서로 바꿀 수 있다.
+- 채점과 공개 화면은 목록형과 같은 길(맞춘 개수 순위)을 타고, 보기와 정답 표시는 객관식과 같은 길을 탄다.
+- 「고를 개수」는 `pick` 필드. 수강생에게 내려가려면 `quiz_public_question` 허용 목록에 넣어야 해서 함수만 운영 DB에 다시 적용했다.
