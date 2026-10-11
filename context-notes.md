@@ -405,3 +405,12 @@ Supabase 익명 로그인은 IP당 시간당 30회 한도가 걸려 있다. 강�
   순위까지 맞추는 채점을 원하면 저장된 순서로 바꿀 수 있다.
 - 채점과 공개 화면은 목록형과 같은 길(맞춘 개수 순위)을 타고, 보기와 정답 표시는 객관식과 같은 길을 탄다.
 - 「고를 개수」는 `pick` 필드. 수강생에게 내려가려면 `quiz_public_question` 허용 목록에 넣어야 해서 함수만 운영 DB에 다시 적용했다.
+
+## 2026-10-12 같은 Supabase에 쟈베스 업무관리 시스템이 함께 산다
+
+무료 계정의 활성 프로젝트 2개가 모두 쓰여 있어, 쟈베스 업무관리 시스템(Vercel `jabez-workspace`)이 이 프로젝트(cgkocnezpitydxrflxom)를 함께 쓴다.
+
+- 그 앱의 테이블은 `jabez_records`, `jabez_users`, `jabez_sessions`(운영)와 `jabez_test_` 세 개(시험), 버킷은 `jabez-files`와 `jabez-test-files`다. 모두 RLS가 켜져 있고 anon 권한을 회수했다. 서버만 service_role로 접근한다.
+- 허브 쪽 정리 작업에서 이 테이블과 버킷을 지우지 않는다. 회사 주간 보고와 회의록 원본이 들어 있다.
+- 허브의 keepalive 크론이 이 프로젝트를 깨워 두므로 쟈베스 앱도 일시정지를 피한다. 프로젝트를 옮기거나 지울 때는 두 앱을 함께 생각한다.
+- 허브 맨 아래 「쟈베스 업무관리 시스템」 카드는 https://jabez-workspace.vercel.app/ 로 연결한다(72f49fb). 로그인은 그 앱의 회사 계정으로 따로 한다.
