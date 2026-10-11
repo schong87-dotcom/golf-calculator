@@ -1,5 +1,6 @@
 // 로그인 후 어떤 앱으로 들어갈지 고르는 허브 화면
 // 재무제표 게임과 이북리더기는 같은 오리진의 정적 페이지라 공통 배포 주소에서 바로 이어진다.
+// 쟈베스 업무관리 시스템은 별도 Vercel 프로젝트(jabez-workspace)라 배포 주소로 연결하고, 로그인은 그 앱의 회사 계정으로 따로 한다.
 export default function AppHub({ username, onSelectGolf, onSelectMeeting, onLogout }) {
   return (
     <div className="hub-page">
@@ -67,6 +68,15 @@ export default function AppHub({ username, onSelectGolf, onSelectMeeting, onLogo
             <span className="hub-card-body">
               <span className="hub-card-title">퀴즈게임</span>
               <span className="hub-card-desc">수강생이 QR로 들어와 폰으로 답하는 실시간 퀴즈</span>
+            </span>
+            <span className="hub-card-arrow">›</span>
+          </a>
+
+          <a className="hub-card hub-card-jabez" href="https://jabez-workspace.vercel.app/">
+            <span className="hub-card-icon">💼</span>
+            <span className="hub-card-body">
+              <span className="hub-card-title">쟈베스 업무관리 시스템</span>
+              <span className="hub-card-desc">부서별 주간 보고를 모으고 회의록과 할 일을 관리합니다</span>
             </span>
             <span className="hub-card-arrow">›</span>
           </a>
