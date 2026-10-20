@@ -47,6 +47,7 @@ Supabase 프로젝트 ref가 같으니 세션 키(`sb-<ref>-auth-token`)도 자�
 ├── quiz/index.html         # 퀴즈게임 페이지(/quiz/) — Vite 두 번째 입력. 코드는 src/quiz/
 ├── supabase-quiz-schema.sql # 퀴즈게임 테이블 4개, RLS, 수강생 함수
 ├── public/reader/          # 이북리더기 배포본 (TXT·MD·PDF, 쪽 넘김·목차·메모 — 원본은 AI스터디/2026-09-18_이북리더기)
+├── public/pomodoro/        # 뽀모도로 타이머 배포본. 여기서 직접 고치지 않는다 — 원본은 AI스터디/2026-10-05_뽀모도로타이머, 그 폴더의 scripts/sync-to-hub.mjs 로만 옮긴다
 ├── supabase-schema.sql     # 골프·모임 테이블 (current_round, rounds, current_meeting, meetings)
 ├── tests/                  # 단위 테스트(node --test) + tests/e2e/ 브라우저 테스트(Playwright)
 └── vite.config.js          # dev 서버에서 /game/ → /game/index.html 재작성
@@ -144,6 +145,9 @@ curl -X POST "https://api.supabase.com/v1/projects/cgkocnezpitydxrflxom/restore"
 ## 배포
 
 `main`에 push해도 **자동 배포되지 않습니다**(Git 연동 없음, 2026-09-25와 2026-10-11에 확인). 직접 올립니다.
+
+⚠️ CLI 배포는 내 폴더의 파일을 그대로 올립니다. 뒤처진 clone 에서 배포하면 그 사이 다른 앱에 들어간 변경이 운영에서 사라집니다.
+배포 직전에 `git pull --ff-only` 와 `git status` 로 origin/main 과 같고 깨끗한지 확인합니다.
 
 ```bash
 # .vercel/project.json 이 golf-calculator(prj_eqHLlSM4baDoxtwiqVzsZ0v5nuGr)를 가리키는 폴더에서
