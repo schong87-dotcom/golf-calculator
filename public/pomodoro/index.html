@@ -56,6 +56,19 @@
             </div>
           </div>
 
+          <div class="task-field" id="task-field">
+            <label for="task-input">지금 할 일</label>
+            <input id="task-input" type="text" maxlength="200" placeholder="예) 보고서 초안 쓰기" autocomplete="off">
+          </div>
+
+          <div class="task-result" id="task-result" hidden>
+            <p id="task-result-text">어떻게 됐나요?</p>
+            <div class="task-result-buttons">
+              <button type="button" id="mark-done">완료</button>
+              <button type="button" id="mark-progress">진행중</button>
+            </div>
+          </div>
+
           <div class="duration-control" aria-label="타이머 시간 조절">
             <span class="duration-label" id="duration-label">집중 시간</span>
             <div class="minute-stepper">
@@ -115,10 +128,19 @@
           <div class="setting-group sound-group">
             <label for="sound-select">알람 소리</label>
             <select id="sound-select">
-              <option value="chime">맑은 종</option>
-              <option value="bell">탁상 종</option>
-              <option value="digital">디지털</option>
-              <option value="soft">부드러운 알림</option>
+              <optgroup label="기본">
+                <option value="chime">맑은 종</option>
+                <option value="bell">탁상 종</option>
+                <option value="digital">디지털</option>
+                <option value="soft">부드러운 알림</option>
+              </optgroup>
+              <optgroup label="부드러운 벨소리">
+                <option value="singing-bowl">싱잉볼</option>
+                <option value="tibetan-bell">티베트 종</option>
+                <option value="tubular-bell">튜브벨</option>
+                <option value="wind-chime">풍경</option>
+                <option value="koshi-chime">코시 차임</option>
+              </optgroup>
             </select>
             <div class="sound-buttons">
               <button type="button" class="sound-test" id="sound-test">소리 들어보기</button>
@@ -137,12 +159,28 @@
         </aside>
       </main>
 
+      <section class="log-panel" aria-labelledby="log-title">
+        <div class="log-heading">
+          <div>
+            <p class="settings-kicker">집중 기록</p>
+            <h2 id="log-title">한 일</h2>
+          </div>
+          <div class="sync-box">
+            <p class="sync-status" id="sync-status" aria-live="polite">구글을 연결하면 기록이 구글 태스크와 노션에 함께 들어갑니다.</p>
+            <button type="button" class="sync-button" id="google-connect">구글 연결</button>
+          </div>
+        </div>
+        <ol class="log-list" id="log-list"></ol>
+        <p class="log-empty" id="log-empty">아직 기록이 없습니다. 할 일을 적고 집중을 시작하세요.</p>
+      </section>
+
       <footer class="app-footer">
         <span>한 번에 하나씩, 지금에 집중</span>
         <span class="footer-indicator"><i aria-hidden="true"></i> 자동 저장</span>
       </footer>
     </div>
     <button class="fullscreen-exit" id="fullscreen-exit" type="button" aria-label="전체화면 닫기">×</button>
+    <script src="task-log.js" defer></script>
     <script src="app.js" defer></script>
   </body>
 </html>

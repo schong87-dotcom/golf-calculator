@@ -8,7 +8,15 @@ const modeInfo = {
 const durationKey = 'pomodoro-dial-durations-v1';
 const preferenceKey = 'pomodoro-dial-preferences-v1';
 const timerKey = 'pomodoro-dial-timer-v1';
-const presetSounds = ['chime', 'bell', 'digital', 'soft'];
+// 위키미디어 공용의 퍼블릭 도메인과 CC0 녹음을 잘라 넣은 벨소리다. 출처는 assets/sounds/CREDITS.md.
+const soundFiles = {
+  'singing-bowl': 'assets/sounds/singing-bowl.mp3',
+  'tibetan-bell': 'assets/sounds/tibetan-bell.mp3',
+  'tubular-bell': 'assets/sounds/tubular-bell.mp3',
+  'wind-chime': 'assets/sounds/wind-chime.mp3',
+  'koshi-chime': 'assets/sounds/koshi-chime.mp3',
+};
+const presetSounds = ['chime', 'bell', 'digital', 'soft', ...Object.keys(soundFiles)];
 const byId = (id) => document.getElementById(id);
 const body = document.body;
 const modeTabs = [...document.querySelectorAll('.mode-tab')];
@@ -42,6 +50,7 @@ const savedTimer = readStorage(timerKey, {});
 let mode = modeInfo[savedTimer.mode] ? savedTimer.mode : 'focus';
 let timer = { status: 'idle', endAt: null, remaining: durations[mode] * 60 };
 const customSounds = new Map();
+const fileSoundBuffers = new Map();
 let audioContext = null;
 let audioBufferSource = null;
 let wakeLock = null;
@@ -49,14 +58,21 @@ let floatingWindow = null;
 let alarmSequenceId = 0;
 let startNote = '';
 
+const savedRecordId = typeof savedTimer.recordId === 'string' ? savedTimer.recordId : null;
 if (savedTimer.status === 'paused') {
-  timer = { status: 'paused', endAt: null, remaining: Math.max(0, Number(savedTimer.remaining) || 0) };
+  timer = { status: 'paused', endAt: null, remaining: Math.max(0, Number(savedTimer.remaining) || 0), recordId: savedRecordId };
 } else if (savedTimer.status === 'running' && Number.isFinite(Number(savedTimer.endAt))) {
   const remaining = Math.ceil((Number(savedTimer.endAt) - Date.now()) / 1000);
   timer = remaining > 0
-    ? { status: 'running', endAt: Number(savedTimer.endAt), remaining }
+    ? { status: 'running', endAt: Number(savedTimer.endAt), remaining, recordId: savedRecordId }
     : { status: 'done', endAt: null, remaining: 0 };
-  if (remaining <= 0) startNote = '시간이 끝났습니다. 소리 들어보기를 눌러 알람을 다시 들을 수 있어요.';
+  if (remaining <= 0) {
+    startNote = '시간이 끝났습니다. 소리 들어보기를 눌러 알람을 다시 들을 수 있어요.';
+    // 창을 닫아 둔 사이 끝난 집중도 끝난 시각 그대로 기록한다.
+    if (savedRecordId) {
+      window.pomodoroLog.finish(savedRecordId, { focusSeconds: durations[mode] * 60, now: new Date(Number(savedTimer.endAt)), ask: true });
+    }
+  }
 }
 
 function saveDurations() {
@@ -71,7 +87,7 @@ function saveTimer() {
   const remaining = timer.status === 'running'
     ? Math.max(0, Math.ceil((timer.endAt - Date.now()) / 1000))
     : timer.remaining;
-  localStorage.setItem(timerKey, JSON.stringify({ mode, status: timer.status, endAt: timer.endAt, remaining }));
+  localStorage.setItem(timerKey, JSON.stringify({ mode, status: timer.status, endAt: timer.endAt, remaining, recordId: timer.recordId || null }));
 }
 
 function formatTime(totalSeconds) {
@@ -206,6 +222,12 @@ function render() {
   byId('timer-toggle').setAttribute('aria-label', timer.status === 'running' ? '일시정지' : timer.status === 'done' ? '다시 시작' : '타이머 시작');
   byId('timer-toggle-label').textContent = timer.status === 'running' ? '일시정지' : timer.status === 'done' ? '다시 시작' : '시작';
   byId('toggle-glyph').textContent = timer.status === 'running' ? 'Ⅱ' : '▶';
+  const activeRecord = timer.recordId && (timer.status === 'running' || timer.status === 'paused')
+    ? window.pomodoroLog.find(timer.recordId)
+    : null;
+  byId('task-field').hidden = mode !== 'focus';
+  byId('task-input').disabled = Boolean(activeRecord);
+  if (activeRecord) byId('task-input').value = activeRecord.task;
   byId('decrease-time').disabled = timer.status === 'running' || durations[mode] <= 1;
   byId('increase-time').disabled = timer.status === 'running' || durations[mode] >= 60;
   modeTabs.forEach((tab) => {
@@ -291,8 +313,15 @@ async function openFloatingClock() {
   updateFloatingClock();
 }
 
+function closeActiveRecord() {
+  if (!timer.recordId || (timer.status !== 'running' && timer.status !== 'paused')) return;
+  window.pomodoroLog.finish(timer.recordId, { focusSeconds: durations[mode] * 60 - activeRemaining() });
+  byId('task-input').value = '';
+}
+
 function selectMode(nextMode) {
   if (!modeInfo[nextMode] || nextMode === mode) return;
+  closeActiveRecord();
   releaseWakeLock();
   mode = nextMode;
   timer = { status: 'idle', endAt: null, remaining: durations[mode] * 60 };
@@ -302,6 +331,7 @@ function selectMode(nextMode) {
 
 function adjustDuration(amount) {
   if (timer.status === 'running') return;
+  closeActiveRecord();
   durations[mode] = wholeMinutes(durations[mode] + amount, modeInfo[mode].minutes);
   timer = { status: 'idle', endAt: null, remaining: durations[mode] * 60 };
   startNote = '';
@@ -325,24 +355,19 @@ function releaseWakeLock() {
 }
 
 function completeTimer(playSound = true) {
+  const { recordId, endAt } = timer;
   timer = { status: 'done', endAt: null, remaining: 0 };
   startNote = '';
   releaseWakeLock();
+  if (recordId) {
+    window.pomodoroLog.finish(recordId, { focusSeconds: durations[mode] * 60, now: new Date(endAt || Date.now()), ask: true });
+    byId('task-input').value = '';
+  }
   render();
   if (playSound) {
+    // 벨소리만 세 번 울리고 음성 안내는 하지 않는다(2026-10-21 사용자 요청).
     void playAlarm(3).then((completed) => {
-      if (!completed) return;
-      try {
-        if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
-          const announcement = new SpeechSynthesisUtterance(noteForStatus());
-          announcement.lang = 'ko-KR';
-          announcement.volume = preferences.volume / 100;
-          window.speechSynthesis.speak(announcement);
-        }
-      } catch {
-        // 음성 안내를 쓸 수 없어도 타이머 종료와 PiP 정리는 계속한다.
-      }
-      if (floatingWindow && !floatingWindow.closed) floatingWindow.close();
+      if (completed && floatingWindow && !floatingWindow.closed) floatingWindow.close();
     });
   }
 }
@@ -516,6 +541,15 @@ async function decodeImportedAudio(blob) {
   }
 }
 
+async function loadSoundFile(name) {
+  if (!fileSoundBuffers.has(name)) {
+    const response = await fetch(soundFiles[name]);
+    if (!response.ok) throw new Error('벨소리 파일을 불러오지 못했습니다.');
+    fileSoundBuffers.set(name, await getAudioContext().decodeAudioData(await response.arrayBuffer()));
+  }
+  return fileSoundBuffers.get(name);
+}
+
 async function playAlarm(repeatCount = 1) {
   const sequenceId = ++alarmSequenceId;
   if (audioBufferSource) {
@@ -524,22 +558,28 @@ async function playAlarm(repeatCount = 1) {
   }
   try {
     const selectedCustomSound = customSoundId(preferences.sound);
-    let customSound = null;
+    let soundBuffer = null;
+    let soundGain = 1;
     if (selectedCustomSound !== null) {
       if (!customSounds.has(selectedCustomSound)) await loadSoundLibrary();
-      customSound = customSounds.get(selectedCustomSound);
+      const customSound = customSounds.get(selectedCustomSound);
       if (!customSound) throw new Error('가져온 소리를 찾을 수 없습니다.');
+      soundBuffer = customSound.buffer;
+    } else if (soundFiles[preferences.sound]) {
+      soundBuffer = await loadSoundFile(preferences.sound);
+      // 녹음 벨소리는 합성음보다 커서 같은 크기로 들리게 줄인다.
+      soundGain = 0.7;
     }
     const context = getAudioContext();
     await context.resume();
     for (let repetition = 0; repetition < repeatCount; repetition += 1) {
       if (sequenceId !== alarmSequenceId) return false;
-      if (customSound) {
+      if (soundBuffer) {
         await new Promise((resolve, reject) => {
           const source = context.createBufferSource();
           const gain = context.createGain();
-          source.buffer = customSound.buffer;
-          gain.gain.value = preferences.volume / 100;
+          source.buffer = soundBuffer;
+          gain.gain.value = (preferences.volume / 100) * soundGain;
           source.connect(gain);
           gain.connect(context.destination);
           source.onended = () => {
@@ -656,11 +696,16 @@ async function saveCustomSound(file) {
 byId('timer-toggle').addEventListener('click', async () => {
   startNote = '';
   if (timer.status === 'running') {
-    timer = { status: 'paused', endAt: null, remaining: activeRemaining() };
+    timer = { status: 'paused', endAt: null, remaining: activeRemaining(), recordId: timer.recordId };
     releaseWakeLock();
   } else {
-    if (timer.status === 'done') timer.remaining = durations[mode] * 60;
-    if (timer.status === 'idle') timer.remaining = durations[mode] * 60;
+    const freshStart = timer.status === 'done' || timer.status === 'idle';
+    if (freshStart) {
+      timer.remaining = durations[mode] * 60;
+      timer.recordId = mode === 'focus'
+        ? window.pomodoroLog.start({ task: byId('task-input').value, plannedMinutes: durations[mode] })
+        : null;
+    }
     timer.endAt = Date.now() + timer.remaining * 1000;
     timer.status = 'running';
     void getAudioContext().resume().catch(() => {});
@@ -672,6 +717,7 @@ byId('timer-toggle').addEventListener('click', async () => {
 byId('decrease-time').addEventListener('click', () => adjustDuration(-1));
 byId('increase-time').addEventListener('click', () => adjustDuration(1));
 byId('reset-button').addEventListener('click', () => {
+  closeActiveRecord();
   releaseWakeLock();
   startNote = '';
   timer = { status: 'idle', endAt: null, remaining: durations[mode] * 60 };

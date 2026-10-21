@@ -317,6 +317,38 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .footer-indicator { display: inline-flex; align-items: center; gap: 6px; }
 .footer-indicator i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 
+.task-field { display: flex; width: min(100%, 340px); flex-direction: column; gap: 6px; margin-top: 16px; }
+.task-field[hidden] { display: none; }
+.task-field label { color: var(--muted); font-size: 12px; font-weight: 620; }
+.task-field input { min-height: 38px; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font-size: 13px; }
+.task-field input:disabled { color: var(--muted); background: var(--page); }
+.task-result { display: flex; width: min(100%, 340px); flex-direction: column; align-items: center; gap: 8px; margin-top: 14px; padding: 12px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); }
+.task-result[hidden] { display: none; }
+.task-result p { margin: 0; font-size: 13px; font-weight: 660; text-align: center; overflow-wrap: anywhere; }
+.task-result-buttons { display: flex; gap: 8px; }
+.task-result-buttons button { min-width: 84px; min-height: 34px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 660; }
+#mark-done { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+.log-panel { margin-bottom: 30px; padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.log-heading { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.log-heading h2 { margin: 0; font-size: 18px; font-weight: 720; letter-spacing: -0.045em; }
+.sync-box { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.sync-status { max-width: 520px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: right; overflow-wrap: anywhere; }
+.sync-button { min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 620; white-space: nowrap; }
+.sync-button:hover { border-color: var(--line-strong); }
+.log-list { margin: 0; padding: 0; list-style: none; }
+.log-day { padding: 12px 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.log-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.log-check { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.log-main { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.log-task { font-size: 13px; font-weight: 640; overflow-wrap: anywhere; }
+.log-item[data-status="완료"] .log-task { color: var(--muted); text-decoration: line-through; }
+.log-time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.log-status { min-height: 30px; padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--page); color: var(--ink); font-size: 12px; }
+.log-sync { min-width: 92px; color: var(--muted); font-size: 10px; text-align: right; white-space: nowrap; }
+.log-empty { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.log-empty[hidden] { display: none; }
+
 body[data-fullscreen="true"] { overflow: hidden; }
 body[data-fullscreen="true"] .app-shell { max-width: none; justify-content: center; padding: 0; }
 body[data-fullscreen="true"] .app-header,
@@ -325,6 +357,9 @@ body[data-fullscreen="true"] .duration-control,
 body[data-fullscreen="true"] .phase-note,
 body[data-fullscreen="true"] .timer-actions,
 body[data-fullscreen="true"] .settings-panel,
+body[data-fullscreen="true"] .task-field,
+body[data-fullscreen="true"] .task-result,
+body[data-fullscreen="true"] .log-panel,
 body[data-fullscreen="true"] .app-footer { display: none; }
 body[data-fullscreen="true"] .fullscreen-exit {
   position: fixed;
@@ -406,6 +441,11 @@ body.pip-body {
   .duration-control { width: min(100%, 300px); margin-top: 12px; }
   .phase-note { margin-top: 10px; }
   .settings-panel { width: min(100%, 440px); align-self: center; }
+  .log-panel { padding: 16px; }
+  .sync-box { justify-content: flex-start; }
+  .sync-status { text-align: left; }
+  .log-item { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .log-sync { grid-column: 2 / -1; min-width: 0; text-align: left; }
   .app-footer { min-height: 43px; font-size: 10px; }
   .fullscreen-button { display: none; }
   .floating-button { display: none; }
