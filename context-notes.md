@@ -423,3 +423,10 @@ Supabase 익명 로그인은 IP당 시간당 30회 한도가 걸려 있다. 강�
 - ⚠️ CacheStorage 는 오리진 전체가 함께 쓴다. 뽀모도로 서비스 워커는 v6 까지 켜질 때 자기 것이 아닌 캐시까지 모두 지웠다. 지금은 다른 앱이 캐시를 쓰지 않아 피해가 없었지만, v7 부터 `pomodoro-dial-` 로 시작하는 캐시만 지운다.
   다른 앱에 서비스 워커를 넣을 때도 자기 접두어 캐시만 지운다. 뽀모도로 서비스 워커 범위는 `/pomodoro/` 라 다른 경로 요청은 가로채지 않는다.
 - 브라우저 저장 키는 앱마다 접두어가 다르다(2026-10-20 `git grep` 확인). 뽀모도로 `pomodoro-dial-` 와 IndexedDB `pomodoro-dial-sounds`, 이북리더기 `ebook-reader-` 와 IndexedDB `ebook-reader`, 퀴즈 `quiz-token-`, 공통 로그인 `sb-<ref>-auth-token`. 새 앱도 자기 이름 접두어를 쓴다.
+
+## 2026-10-22 뽀모도로 v8 — 노션 서버 함수가 api/ 에 들어왔다
+
+- `api/pomodoro-notion.js` 도 사본이다. 원본은 드라이브 뽀모도로 폴더의 `api/pomodoro-notion.js` 이고 `scripts/sync-to-hub.mjs` 가 여기로 옮긴다. 직접 고치지 않는다.
+- 구글 접근 토큰을 tokeninfo 로 확인해 클라이언트 ID 와 주인 계정(`POMODORO_OWNER_EMAILS`)이 맞을 때만 노션 「집중 기록」 DB 에 쓴다. 노션 토큰은 `NOTION_POMODORO_TOKEN`(노션 연동 「뽀모도로 타이머」).
+- 같은 구글 OAuth 웹 클라이언트(`golf-calculator`)를 Supabase 로그인과 함께 쓴다. 이번에 승인된 JavaScript 원본에 운영 주소만 더했고 리디렉션 URI 는 그대로다.
+- 결정과 테스트는 드라이브 뽀모도로 폴더 `context-notes.md` 2026-10-22 항목에 있다.
