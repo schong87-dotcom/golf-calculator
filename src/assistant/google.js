@@ -64,7 +64,7 @@ export async function requestToken(state, prompt) {
     }).requestAccessToken();
   });
   const next = { ...state, accessToken: response.access_token, expiresAt: Date.now() + Number(response.expires_in || 3600) * 1000 };
-  if (!next.email || prompt === 'consent') {
+  if (!next.email) {
     const profile = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${next.accessToken}` } })
       .then((r) => r.json()).catch(() => ({}));
     if (profile.email && profile.email !== state.email) Object.assign(next, { email: profile.email, readCalendars: ['primary'], writeCalendar: 'primary' });

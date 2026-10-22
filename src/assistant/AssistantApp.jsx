@@ -125,7 +125,8 @@ export default function AssistantApp() {
     try {
       if (!tokenValid(state)) {
         if (!interactive) return;
-        state = await requestToken(state, state.email ? '' : 'consent');
+        // 빈 prompt: 처음 한 번만 동의 화면이 뜨고, 이미 동의했으면 창이 바로 닫힌다
+        state = await requestToken(state, '');
         live.google = state;
         setGstate(state);
       }
