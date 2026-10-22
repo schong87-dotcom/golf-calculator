@@ -3,11 +3,14 @@
 // 원본은 드라이브 뽀모도로 폴더의 api/pomodoro-notion.js 다. 앱 모음의 사본은 scripts/sync-to-hub.mjs 로만 바꾼다.
 const GOOGLE_CLIENT_ID = '450177760064-6g9lk2lcmi6lm0tvgs40pva4n517u1sr.apps.googleusercontent.com';
 const DEFAULT_DATABASE_ID = 'd4ff7cc1-732d-42b4-92d0-7869ce5bac0d';
+// 「일별 집중 합계」 DB. 날짜마다 한 줄이고, 집중 기록을 관계로 묶어 합계(분)를 롤업으로 더한다.
+const DEFAULT_DAILY_DATABASE_ID = 'fb0b4134-69a6-4a48-93db-6221b52f87e3';
 const NOTION_VERSION = '2022-06-28';
+const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 const compactId = (id) => String(id || '').replaceAll('-', '').toLowerCase();
+const text = (value) => [{ text: { content: String(value).slice(0, 2000) } }];
 
 export function notionProperties(record) {
-  const text = (value) => [{ text: { content: String(value).slice(0, 2000) } }];
   const done = record.status === '완료';
   const minutes = (value) => (Number.isFinite(Number(value)) && value !== null ? Number(value) : null);
   return {
@@ -38,6 +41,23 @@ export function createHandler({ fetchImpl = (...args) => fetch(...args), env = p
       signal: AbortSignal.timeout(15000),
     });
     return { status: response.status, data: await response.json().catch(() => ({})) };
+  }
+
+  // 기록을 시작한 날(기기 시간대 날짜)의 합계 줄을 찾고, 없으면 만든다.
+  async function dayPageId(startAt) {
+    const day = /^\d{4}-\d{2}-\d{2}/.exec(String(startAt || ''))?.[0];
+    if (!day) return null;
+    const dailyId = env.NOTION_POMODORO_DAILY_DATABASE_ID || DEFAULT_DAILY_DATABASE_ID;
+    const found = await notion('POST', `/databases/${dailyId}/query`, { filter: { property: '일자', date: { equals: day } }, page_size: 1 });
+    if (found.status !== 200) throw new Error(`일별 합계 조회 ${found.status}`);
+    if (found.data.results?.[0]) return found.data.results[0].id;
+    const weekday = weekdays[new Date(`${day}T00:00:00Z`).getUTCDay()];
+    const created = await notion('POST', '/pages', {
+      parent: { database_id: dailyId },
+      properties: { '날짜': { title: text(`${day} (${weekday})`) }, '일자': { date: { start: day } } },
+    });
+    if (created.status !== 200) throw new Error(`일별 합계 만들기 ${created.status}`);
+    return created.data.id;
   }
 
   return async function handler(request, response) {
@@ -84,11 +104,20 @@ export function createHandler({ fetchImpl = (...args) => fetch(...args), env = p
     }
 
     const properties = notionProperties(record);
+    // 합계 줄을 못 찾아도 기록 자체는 남긴다. 실패는 응답의 daily 로 알린다.
+    let daily = null;
+    try {
+      const dayId = await dayPageId(record.startAt);
+      if (dayId) properties['일별 합계'] = { relation: [{ id: dayId }] };
+    } catch (error) {
+      console.error('pomodoro-notion daily', error.message);
+      daily = 'error';
+    }
     const saved = pageId
       ? await notion('PATCH', `/pages/${pageId}`, { properties })
       : await notion('POST', '/pages', { parent: { database_id: databaseId }, properties });
     if (saved.status !== 200) return fail(response, 502, 'notion', saved.data.message || `노션 응답 ${saved.status}`);
-    return response.status(200).json({ ok: true, pageId: saved.data.id, url: saved.data.url });
+    return response.status(200).json({ ok: true, pageId: saved.data.id, url: saved.data.url, ...(daily ? { daily } : {}) });
   };
 }
 
