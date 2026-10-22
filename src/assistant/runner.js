@@ -1,6 +1,7 @@
 // 동기화 계획(planSync)을 실제로 실행한다. 구글 쪽은 브라우저에서 바로 쓰고, 노션 쪽은 서버 함수에 여러 건씩 묶어 보낸다.
 import { addDays, startOfDay } from './dates.js';
 import { eventBody, planSync, stateAfter, taskBody } from './sync.js';
+import { TASK_LIST_TITLE } from './google.js';
 
 // 기본 캘린더가 아닌 일정은 「일정ID@@캘린더ID」로 적어 어느 캘린더 것인지 남긴다
 export const eventKey = (calendarId, eventId) => (calendarId === 'primary' ? eventId : `${eventId}@@${calendarId}`);
@@ -9,6 +10,14 @@ export function splitEventKey(key) {
   return { eventId, calendarId };
 }
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
+
+// 할 일을 맞출 구글 할 일 목록. 정해 둔 것이 없으면 「노션 비서」 목록을 찾고, 없으면 만든다.
+export async function resolveTaskList(google, settings) {
+  if (settings.tasksList) return settings.tasksList;
+  const lists = await google.listTaskLists();
+  const found = lists.find((l) => l.title === TASK_LIST_TITLE);
+  return found ? found.id : (await google.createTaskList(TASK_LIST_TITLE)).id;
+}
 
 // 앱에서 하나를 만들거나 고친 직후 그 항목만 구글에 반영한다. 바뀐 항목(노션에 다시 써야 할 것)을 돌려준다.
 export async function pushItem(item, google, settings) {
@@ -34,17 +43,17 @@ export async function pushItem(item, google, settings) {
   }
   if (next.type === 'task') {
     if (next.gtaskId) {
-      const task = await google.patchTask(settings.taskList, next.gtaskId, taskBody(next));
+      const task = await google.patchTask(settings.tasksList, next.gtaskId, taskBody(next));
       next = { ...next, syncState: stateAfter(next, task.updated) };
       changed = true;
     } else if (!next.done) {
-      const task = await google.createTask(settings.taskList, taskBody(next));
+      const task = await google.createTask(settings.tasksList, taskBody(next));
       next = { ...next, gtaskId: task.id, googleUrl: task.webViewLink || '' };
       next.syncState = stateAfter(next, task.updated);
       changed = true;
     }
   } else if (next.gtaskId) {
-    await google.deleteTask(settings.taskList, next.gtaskId);
+    await google.deleteTask(settings.tasksList, next.gtaskId);
     next = { ...next, gtaskId: null, googleUrl: next.gcalId ? next.googleUrl : '', syncState: next.gcalId ? next.syncState : '' };
     changed = true;
   }
@@ -56,7 +65,7 @@ export async function removeFromGoogle(item, google, settings) {
     const { eventId, calendarId } = splitEventKey(item.gcalId);
     await google.deleteEvent(calendarId, eventId);
   }
-  if (item.gtaskId) await google.deleteTask(settings.taskList, item.gtaskId);
+  if (item.gtaskId) await google.deleteTask(settings.tasksList, item.gtaskId);
 }
 
 /**
@@ -71,7 +80,7 @@ export async function runFullSync({ items, google, settings, notion, now = new D
   const events = (await Promise.all(calendars.map(async (calendarId) => (await google.listEvents(calendarId, from, to))
     .map((e) => ({ ...e, id: eventKey(calendarId, e.id), _rawId: e.id, _cal: calendarId }))))).flat();
   onProgress('구글 할 일을 읽는 중');
-  const tasks = await google.listTasks(settings.taskList, addDays(now, -7));
+  const tasks = await google.listTasks(settings.tasksList, addDays(now, -14));
   const ops = planSync({ items, events, tasks, now });
 
   const current = new Map(items.map((i) => [i.id, i]));
@@ -117,7 +126,7 @@ export async function runFullSync({ items, google, settings, notion, now = new D
           break;
         }
         case 'createTask': {
-          const task = await google.createTask(settings.taskList, taskBody(item));
+          const task = await google.createTask(settings.tasksList, taskBody(item));
           const next = { ...item, gtaskId: task.id, googleUrl: task.webViewLink || '' };
           update(item.id, { ...next, syncState: stateAfter(next, task.updated) });
           pushed += 1;
@@ -127,7 +136,7 @@ export async function runFullSync({ items, google, settings, notion, now = new D
           update(item.id, { gtaskId: op.task.id, googleUrl: op.task.webViewLink || '', syncState: stateAfter(item, op.task.updated) });
           break;
         case 'patchTask': {
-          const task = await google.patchTask(settings.taskList, item.gtaskId, taskBody(item));
+          const task = await google.patchTask(settings.tasksList, item.gtaskId, taskBody(item));
           update(item.id, { syncState: stateAfter(item, task.updated) });
           pushed += 1;
           break;
@@ -139,7 +148,7 @@ export async function runFullSync({ items, google, settings, notion, now = new D
           break;
         }
         case 'deleteTask':
-          await google.deleteTask(settings.taskList, item.gtaskId);
+          await google.deleteTask(settings.tasksList, item.gtaskId);
           update(item.id, { gtaskId: null, syncState: '' });
           break;
         case 'trashItem':

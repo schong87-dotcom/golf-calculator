@@ -2,9 +2,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
 import { createGoogleClient, loadGoogleState, requestToken, revoke, saveGoogleState, tokenValid } from './google.js';
-import { pushItem, removeFromGoogle, runFullSync } from './runner.js';
+import { pushItem, removeFromGoogle, resolveTaskList, runFullSync } from './runner.js';
 import { applyHabitLog, habitDone, itemFromParsed, overdueTasks, TABS, taskGroups, todayStats, TYPES, upsert } from './model.js';
-import { dayKey, isAllDay, timeText, toLocalISO, ymd } from './dates.js';
+import { isAllDay, timeText, toLocalISO, whenText, ymd } from './dates.js';
 import { BottomNav, Header, QuickAdd, Toast } from './parts.jsx';
 import { AgendaView, HabitsView, InfoView, SomedayView, TasksView, TodayView } from './views.jsx';
 import { HabitSheet, ItemSheet, SettingsSheet } from './sheets.jsx';
@@ -75,6 +75,7 @@ export default function AssistantApp() {
   const [now, setNow] = useState(() => new Date());
   const [gstate, setGstate] = useState(() => live.google);
   const [calendars, setCalendars] = useState([]);
+  const [taskLists, setTaskLists] = useState([]);
   const [sync, setSync] = useState({ running: false, text: '', at: '', error: '' });
   useEffect(() => { live.data = data; }, [data]);
   useEffect(() => { live.google = gstate; }, [gstate]);
@@ -86,6 +87,15 @@ export default function AssistantApp() {
   };
   const notify = useCallback((text, extra = {}) => setToast({ id: Date.now(), text, ...extra }), []);
   const setItems = (fn) => setData((d) => ({ ...d, items: fn(d.items) }));
+  // 구글 할 일 목록 ID 를 정해 두고(처음 한 번), 최신 구글 설정을 돌려준다
+  const ensureTaskList = useCallback(async () => {
+    if (live.google.tasksList) return live.google;
+    const next = { ...live.google, tasksList: await resolveTaskList(google, live.google) };
+    live.google = next;
+    saveGoogleState(next);
+    setGstate(next);
+    return next;
+  }, []);
 
   const applyFresh = useCallback((fresh) => {
     live.lastLoad = Date.now();
@@ -132,6 +142,7 @@ export default function AssistantApp() {
       }
       setSync((s) => ({ ...s, running: true, text: '동기화 중', error: '' }));
       const latest = (await load()) || live.data;
+      state = await ensureTaskList();
       const result = await runFullSync({
         items: latest.items.filter((i) => !i.pending),
         google,
@@ -157,7 +168,7 @@ export default function AssistantApp() {
       }
       notify(`구글 동기화 실패: ${error.message}`, { error: true });
     }
-  }, [load, notify]);
+  }, [ensureTaskList, load, notify]);
 
   // 처음 열 때: 노션 읽기 → 구글 연결이 살아 있으면 동기화
   useEffect(() => {
@@ -199,7 +210,7 @@ export default function AssistantApp() {
       setItems((items) => upsert(items, saved, tempId));
       if (tokenValid(live.google)) {
         try {
-          const pushed = await pushItem(saved, google, live.google);
+          const pushed = await pushItem(saved, google, await ensureTaskList());
           if (pushed) {
             saved = await api.updateItem(forServer(pushed));
             setItems((items) => upsert(items, saved));
@@ -215,18 +226,15 @@ export default function AssistantApp() {
       notify(`저장하지 못했어요. ${error.message}`, { error: true });
       return null;
     }
-  }, [notify]);
+  }, [ensureTaskList, notify]);
 
   const actions = useMemo(() => ({
     open: (item) => setSheet({ kind: 'item', item }),
     add: async (parsed) => {
       const item = itemFromParsed(parsed, new Date());
       const tail = item.type === 'event' ? ' · 구글 캘린더에도' : item.type === 'task' ? ' · 구글 할 일에도' : '';
-      notify(`${TYPES[item.type].label}에 넣었어요${tokenValid(live.google) ? tail : ''}`);
-      const target = { task: 'tasks', event: 'agenda', someday: 'someday', info: 'info' }[item.type];
-      const today = ymd(new Date());
-      const showsOnToday = (item.type === 'task' || item.type === 'event') && dayKey(item.start) === today;
-      if (!showsOnToday && tab === 'today' && item.type !== 'task') setTab(target);
+      const when = item.start ? ` · ${whenText(item.start, item.end, new Date())}` : '';
+      notify(`${TYPES[item.type].label}에 넣었어요${when}${tokenValid(live.google) ? tail : ''}`);
       await persist(item, { isNew: true });
     },
     toggleDone: (item) => {
@@ -276,14 +284,14 @@ export default function AssistantApp() {
       }
     },
     connectGoogle: () => runSync({ interactive: true }),
-  }), [notify, persist, runSync, tab]);
+  }), [notify, persist, runSync]);
 
   const removeItem = (item) => {
     setSheet(null);
     setItems((items) => items.filter((i) => i.id !== item.id));
     const timer = setTimeout(async () => {
       try {
-        if (tokenValid(live.google)) await removeFromGoogle(item, google, live.google);
+        if (tokenValid(live.google)) await removeFromGoogle(item, google, await ensureTaskList());
         await api.trashItem(item.id);
       } catch (error) {
         setItems((items) => upsert(items, item));
@@ -301,6 +309,7 @@ export default function AssistantApp() {
   useEffect(() => {
     if (sheet?.kind !== 'settings' || !tokenValid(live.google)) return;
     google.listCalendars().then(setCalendars).catch(() => setCalendars([]));
+    google.listTaskLists().then(setTaskLists).catch(() => setTaskLists([]));
   }, [sheet]);
 
   if (status === 'loading') return <div className="nb-loading"><span className="nb-spin" /> 노션에서 불러오는 중</div>;
@@ -348,7 +357,7 @@ export default function AssistantApp() {
         }} />
       )}
       {sheet?.kind === 'settings' && (
-        <SettingsSheet google={gstate} calendars={calendars} home={data.home} sync={sync} onClose={() => setSheet(null)}
+        <SettingsSheet google={gstate} calendars={calendars} taskLists={taskLists} home={data.home} sync={sync} onClose={() => setSheet(null)}
           onConnect={() => { setSheet(null); runSync({ interactive: true }); }}
           onSync={() => { setSheet(null); runSync({ interactive: true }); }}
           onDisconnect={() => { setGstate(revoke(gstate)); setCalendars([]); notify('구글 연결을 끊었어요. 노션 기록은 그대로입니다.'); }}

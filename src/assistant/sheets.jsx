@@ -205,10 +205,11 @@ export function HabitSheet({ habit, onSave, onClose }) {
   );
 }
 
-export function SettingsSheet({ google, calendars, onConnect, onDisconnect, onSaveGoogle, onSync, onClose, home, sync }) {
+export function SettingsSheet({ google, calendars, taskLists = [], onConnect, onDisconnect, onSaveGoogle, onSync, onClose, home, sync }) {
   const [read, setRead] = useState(google.readCalendars);
   const [write, setWrite] = useState(google.writeCalendar);
-  const changed = write !== google.writeCalendar || read.join() !== google.readCalendars.join();
+  const [tasks, setTasks] = useState(google.tasksList);
+  const changed = write !== google.writeCalendar || read.join() !== google.readCalendars.join() || tasks !== google.tasksList;
   const writable = calendars.filter((c) => c.accessRole === 'owner' || c.accessRole === 'writer');
   const idOf = (c) => (c.primary ? 'primary' : c.id);
   return (
@@ -235,7 +236,17 @@ export function SettingsSheet({ google, calendars, onConnect, onDisconnect, onSa
                       {writable.map((c) => <option key={c.id} value={idOf(c)}>{c.summaryOverride || c.summary}</option>)}
                     </select>
                   </label>
-                  <button type="button" className="nb-btn is-primary" disabled={!changed || !read.length} onClick={() => onSaveGoogle({ readCalendars: read, writeCalendar: write })}>캘린더 설정 저장</button>
+                  {taskLists.length > 0 && (
+                    <label className="nb-field">
+                      <span>할 일을 맞출 구글 할 일 목록</span>
+                      <select value={tasks} onChange={(e) => setTasks(e.target.value)} aria-label="구글 할 일 목록">
+                        {!taskLists.some((l) => l.id === tasks) && <option value={tasks}>노션 비서 (자동)</option>}
+                        {taskLists.map((l) => <option key={l.id} value={l.id}>{l.title}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <p className="nb-hint">목록을 바꾸면 그 목록의 할 일을 가져오고, 앞으로 만드는 할 일도 그 목록에 들어갑니다.</p>
+                  <button type="button" className="nb-btn is-primary" disabled={!changed || !read.length} onClick={() => onSaveGoogle({ readCalendars: read, writeCalendar: write, tasksList: tasks })}>구글 설정 저장</button>
                 </>
               ) : <p className="nb-hint">캘린더 목록은 구글 연결이 살아 있을 때 보입니다.</p>}
               <div className="nb-field-row">

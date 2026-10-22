@@ -19,7 +19,9 @@ export class GoogleError extends Error {
   }
 }
 
-const defaults = { accessToken: '', expiresAt: 0, email: '', writeCalendar: 'primary', readCalendars: ['primary'], taskList: '@default', lastSync: '' };
+// tasksList 가 비어 있으면 「노션 비서」 목록을 찾거나 만들어 쓴다(기본 목록은 다른 용도일 수 있어 건드리지 않는다)
+const defaults = { accessToken: '', expiresAt: 0, email: '', writeCalendar: 'primary', readCalendars: ['primary'], tasksList: '', lastSync: '' };
+export const TASK_LIST_TITLE = '노션 비서';
 
 export function loadGoogleState() {
   try {
@@ -121,9 +123,18 @@ export function createGoogleClient(getState) {
     deleteEvent: (calendarId, id) => request(`${cal(calendarId)}/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch((e) => {
       if (e.status !== 404 && e.status !== 410) throw e;
     }),
-    listTasks: (listId, completedMin) => pages(list(listId), {
-      showCompleted: true, showHidden: true, showDeleted: true, completedMin: completedMin.toISOString(), maxResults: 100,
-    }, 'items'),
+    // 안 끝난 할 일 전부 + 최근에 바뀐 것(완료, 삭제 포함). completedMin 을 쓰면 안 끝난 할 일이 빠진다(2026-10-23 실측).
+    listTasks: async (listId, updatedMin) => {
+      const [open, recent] = await Promise.all([
+        pages(list(listId), { showCompleted: false, maxResults: 100 }, 'items'),
+        pages(list(listId), { showCompleted: true, showHidden: true, showDeleted: true, updatedMin: updatedMin.toISOString(), maxResults: 100 }, 'items'),
+      ]);
+      const byId = new Map(open.map((t) => [t.id, t]));
+      for (const t of recent) byId.set(t.id, t);
+      return [...byId.values()];
+    },
+    listTaskLists: () => pages(`${TASKS}/users/@me/lists`, { maxResults: 100 }, 'items'),
+    createTaskList: (title) => request(`${TASKS}/users/@me/lists`, { method: 'POST', body: { title } }),
     createTask: (listId, body) => request(list(listId), { method: 'POST', body }),
     patchTask: (listId, id, body) => request(`${list(listId)}/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
     deleteTask: (listId, id) => request(`${list(listId)}/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch((e) => {

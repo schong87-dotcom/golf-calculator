@@ -69,7 +69,7 @@ test('한 줄 입력: 미리보기에 실제 날짜가 보이고, 추가하면 �
   await expect(page.locator('.nb-quick-preview')).toContainText('내일 15:00~16:00');
   await expect(page.locator('.nb-quick-preview')).toContainText('📍 강남');
   await input.press('Enter');
-  await expect(page.getByRole('status')).toContainText('일정에 넣었어요');
+  await expect(page.getByRole('status')).toContainText('일정에 넣었어요 · 내일 15:00~16:00');
   await expect.poll(() => itemNamed(backend, '치과') && prop(itemNamed(backend, '치과'), '날짜')).toEqual({ start: '2026-10-24T15:00:00+09:00', end: '2026-10-24T16:00:00+09:00' });
   const page1 = itemNamed(backend, '치과');
   expect(prop(page1, '종류')).toBe('일정');
@@ -84,6 +84,8 @@ test('미리보기에서 종류를 바꾸면 그 종류로 들어간다', async 
   await page.locator('.nb-quick-preview').getByRole('radio', { name: /언젠가/ }).click();
   await page.getByRole('button', { name: '추가' }).click();
   await expect.poll(() => itemNamed(backend, '제주도 한 달 살기') && prop(itemNamed(backend, '제주도 한 달 살기'), '종류')).toBe('언젠가');
+  await expect(page.getByRole('status')).toContainText('언젠가에 넣었어요');
+  await page.locator('.nb-nav').getByRole('button', { name: /언젠가/ }).click();
   await expect(page.locator('.nb-main')).toContainText('제주도 한 달 살기');
 });
 
@@ -118,7 +120,11 @@ test('구글을 연결하면 양쪽을 맞춘다: 구글 일정과 할 일은 �
   const { backend, g } = await open(page, {
     google: {
       events: [{ id: 'g-lunch', summary: '점심 약속', start: { dateTime: '2026-10-23T12:00:00+09:00' }, end: { dateTime: '2026-10-23T13:00:00+09:00' }, location: '을지로' }],
-      tasks: [{ id: 'g-milk', title: '우유 사기', status: 'needsAction' }],
+      lists: [{ id: 'default-list', title: '대표님 보고' }, { id: 'nb-list', title: '노션 비서' }],
+      tasks: [
+        { id: 'g-milk', list: 'nb-list', title: '우유 사기', status: 'needsAction', updated: '2025-01-01T00:00:00.000Z' },
+        { id: 'g-boss', list: 'default-list', title: '대표님 보고 자료', status: 'needsAction' },
+      ],
     },
   });
   await page.getByLabel('빠른 입력').fill('내일 오후 3시 치과');
@@ -133,6 +139,7 @@ test('구글을 연결하면 양쪽을 맞춘다: 구글 일정과 할 일은 �
   expect(prop(lunch, '구글 캘린더 ID')).toBe('g-lunch');
   expect(prop(lunch, '장소')).toBe('을지로');
   expect(prop(itemNamed(backend, '우유 사기'), '출처')).toBe('구글 할 일');
+  expect(itemNamed(backend, '대표님 보고 자료')).toBeUndefined();
   const dentist = g.events.find((e) => e.summary === '치과');
   expect(dentist.start.dateTime).toBe('2026-10-24T15:00:00+09:00');
   expect(dentist.extendedProperties.private.notionPageId).toBe(itemNamed(backend, '치과').id.replaceAll('-', ''));
@@ -153,6 +160,10 @@ test('구글이 연결된 상태에서 할 일을 적고 끝내면 구글 할 �
   await page.getByLabel('빠른 입력').fill('오늘 은행 들르기');
   await page.getByLabel('빠른 입력').press('Enter');
   await expect.poll(() => g.tasks.find((t) => t.title === '은행 들르기')?.due).toBe('2026-10-23T00:00:00.000Z');
+  // 기본 목록(대표님 보고)이 아니라 앱 전용 목록 「노션 비서」를 만들어 거기에 넣는다
+  const nb = g.lists.find((l) => l.title === '노션 비서');
+  expect(nb).toBeTruthy();
+  expect(g.tasks.find((t) => t.title === '은행 들르기').list).toBe(nb.id);
   await expect.poll(() => prop(itemNamed(backend, '은행 들르기'), '구글 할 일 ID')).toMatch(/^task/);
   await page.getByRole('button', { name: '은행 들르기 완료' }).click();
   await expect.poll(() => g.tasks.find((t) => t.title === '은행 들르기').status).toBe('completed');

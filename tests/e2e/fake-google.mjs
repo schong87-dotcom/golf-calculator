@@ -13,8 +13,9 @@ window.google = { accounts: { oauth2: {
   revoke(token, done) { done && done(); },
 } } };`;
 
-export async function mockGoogle(page, { events = [], tasks = [] } = {}) {
-  const store = { events: events.map((e) => ({ updated: '2026-10-22T00:00:00.000Z', status: 'confirmed', ...e })), tasks: tasks.map((t) => ({ updated: '2026-10-22T00:00:00.000Z', ...t })), calls: [] };
+export async function mockGoogle(page, { events = [], tasks = [], lists = [{ id: 'default-list', title: '대표님 보고' }] } = {}) {
+  const store = {
+    lists: lists.map((l) => ({ ...l })), events: events.map((e) => ({ updated: '2026-10-22T00:00:00.000Z', status: 'confirmed', ...e })), tasks: tasks.map((t) => ({ updated: '2026-10-22T00:00:00.000Z', ...t })), calls: [] };
   let seq = 0;
   const stamp = () => new Date(Date.UTC(2026, 9, 23, 1, 0, ++seq)).toISOString();
 
@@ -54,14 +55,32 @@ export async function mockGoogle(page, { events = [], tasks = [] } = {}) {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     const url = new URL(req.url());
+    const q = url.searchParams;
     const body = req.postData() ? JSON.parse(req.postData()) : null;
-    store.calls.push(`${req.method()} ${url.pathname}`);
+    store.calls.push(`${req.method()} ${url.pathname}${url.search}`);
+    if (url.pathname === '/tasks/v1/users/@me/lists') {
+      if (req.method() === 'POST') {
+        const list = { id: `list${++seq}`, title: body.title };
+        store.lists.push(list);
+        return json(route, 200, list);
+      }
+      return json(route, 200, { items: store.lists });
+    }
     const m = /^\/tasks\/v1\/lists\/([^/]+)\/tasks(?:\/([^/]+))?$/.exec(url.pathname);
     if (!m) return json(route, 404, {});
+    const listId = decodeURIComponent(m[1]) === '@default' ? store.lists[0].id : decodeURIComponent(m[1]);
     const id = m[2] && decodeURIComponent(m[2]);
-    if (req.method() === 'GET') return json(route, 200, { items: store.tasks });
+    if (req.method() === 'GET') {
+      // 실제 구글처럼: completedMin 이 있으면 완료된 것만, showCompleted=false 면 안 끝난 것만, 지운 것은 showDeleted 때만
+      const items = store.tasks.filter((t) => (t.list || store.lists[0].id) === listId)
+        .filter((t) => (q.get('showDeleted') === 'true' ? true : !t.deleted))
+        .filter((t) => (q.get('showCompleted') === 'false' ? t.status !== 'completed' : true))
+        .filter((t) => (q.get('completedMin') ? t.status === 'completed' && t.completed >= q.get('completedMin') : true))
+        .filter((t) => (q.get('updatedMin') ? t.updated >= q.get('updatedMin') : true));
+      return json(route, 200, { items });
+    }
     if (req.method() === 'POST') {
-      const task = { ...body, id: `task${++seq}`, updated: stamp(), webViewLink: `https://tasks.google.com/task/${seq}` };
+      const task = { ...body, id: `task${++seq}`, list: listId, updated: stamp(), webViewLink: `https://tasks.google.com/task/${seq}` };
       store.tasks.push(task);
       return json(route, 200, task);
     }
@@ -69,10 +88,12 @@ export async function mockGoogle(page, { events = [], tasks = [] } = {}) {
     if (!task) return json(route, 404, {});
     if (req.method() === 'PATCH') {
       Object.assign(task, body, { updated: stamp() });
+      if (body.status === 'completed' && !task.completed) task.completed = stamp();
       return json(route, 200, task);
     }
     if (req.method() === 'DELETE') {
       task.deleted = true;
+      task.updated = stamp();
       return route.fulfill({ status: 204, headers: CORS });
     }
     return json(route, 405, {});
