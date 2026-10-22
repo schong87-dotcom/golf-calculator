@@ -1012,6 +1012,8 @@ input::placeholder { color: #bbb; }
 
 .hub-card-quiz:hover { border-color: #0f766e; }
 .hub-card-quiz .hub-card-icon { background: #ddf3f0; }
+.hub-card-assistant:hover { border-color: #3b63e0; }
+.hub-card-assistant .hub-card-icon { background: #e9eefc; }
 
 .hub-card-jabez:hover { border-color: #0b6470; }
 .hub-card-jabez .hub-card-icon { background: #e0eef0; }

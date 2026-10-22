@@ -39,6 +39,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         quiz: fileURLToPath(new URL('./quiz/index.html', import.meta.url)),
+        assistant: fileURLToPath(new URL('./assistant/index.html', import.meta.url)),
       },
     },
   },

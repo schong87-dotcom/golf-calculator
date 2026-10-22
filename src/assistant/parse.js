@@ -104,10 +104,10 @@ export function parseQuickInput(text, now = new Date(), { areas = [] } = {}) {
     date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   } else if ((m = grab(/(?:(\d{4})년\s*)?(\d{1,2})월\s*(\d{1,2})일/))) {
     date = new Date(Number(m[1] || today.getFullYear()), Number(m[2]) - 1, Number(m[3]));
-    if (!m[1] && date < today) date.setFullYear(date.getFullYear() + 1);
+    if (!m[1] && date < addDays(today, -60)) date.setFullYear(date.getFullYear() + 1);
   } else if ((m = grab(/(?<![\d/])(\d{1,2})\/(\d{1,2})(?![\d/])/))) {
     date = new Date(today.getFullYear(), Number(m[1]) - 1, Number(m[2]));
-    if (date < today) date.setFullYear(date.getFullYear() + 1);
+    if (date < addDays(today, -60)) date.setFullYear(date.getFullYear() + 1);
   } else if ((m = grab(/(다음|이번)\s?달\s*(\d{1,2})일/))) {
     date = new Date(today.getFullYear(), today.getMonth() + (m[1] === '다음' ? 1 : 0), Number(m[2]));
   } else if ((m = grab(/(\d+)\s*(일|주|개월|달)\s*(?:뒤|후)/))) {
@@ -125,9 +125,9 @@ export function parseQuickInput(text, now = new Date(), { areas = [] } = {}) {
     } else {
       date = addDays(today, (target - today.getDay() + 7) % 7);
     }
-  } else if ((m = grab(/(이번\s?주\s?)?주말/))) {
+  } else if (grab(/(이번\s?주\s?)?주말/)) {
     date = addDays(today, (6 - today.getDay() + 7) % 7);
-  } else if ((m = grab(/(이번\s?달\s?말|월말)/))) {
+  } else if (grab(/(이번\s?달\s?말|월말)/)) {
     date = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   } else if ((m = grab(/(?<!\d)(\d{1,2})일(?!\s*(?:뒤|후|동안|간))/))) {
     date = new Date(today.getFullYear(), today.getMonth(), Number(m[1]));
@@ -161,6 +161,6 @@ export function parseQuickInput(text, now = new Date(), { areas = [] } = {}) {
 
   if (out.type === 'task' && out.end) out.end = null;
   out.allDay = Boolean(out.start && out.start.length === 10);
-  out.title = s.replace(/\s+/g, ' ').replace(/^[\s:：,.\-]+|[\s:：,\-]+$/g, '').trim();
+  out.title = s.replace(/\s+/g, ' ').replace(/^[\s:：,.-]+|[\s:：,-]+$/g, '').trim();
   return out;
 }

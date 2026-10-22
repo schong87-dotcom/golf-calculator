@@ -72,6 +72,15 @@ export default function AppHub({ username, onSelectGolf, onSelectMeeting, onLogo
             <span className="hub-card-arrow">›</span>
           </a>
 
+          <a className="hub-card hub-card-assistant" href="/assistant/">
+            <span className="hub-card-icon">🤖</span>
+            <span className="hub-card-body">
+              <span className="hub-card-title">노션 비서</span>
+              <span className="hub-card-desc">한 줄로 적으면 노션과 구글 캘린더, 구글 할 일에 함께 기록합니다</span>
+            </span>
+            <span className="hub-card-arrow">›</span>
+          </a>
+
           <a className="hub-card hub-card-jabez" href="https://jabez-workspace.vercel.app/">
             <span className="hub-card-icon">💼</span>
             <span className="hub-card-body">
