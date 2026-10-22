@@ -5,5 +5,12 @@
       "path": "/api/keepalive",
       "schedule": "0 3 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/pomodoro-alarm-send.js": {
+      "experimentalTriggers": [
+        { "type": "queue/v2beta", "topic": "pomodoro-alarm", "retryAfterSeconds": 5 }
+      ]
+    }
+  }
 }
