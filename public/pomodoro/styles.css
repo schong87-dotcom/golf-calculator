@@ -311,6 +311,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .volume-group { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px 12px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--ink); font-size: 12px; font-weight: 680; }
 .volume-group output { color: var(--muted); font-size: 11px; font-weight: 620; }
 .volume-group input { width: 100%; grid-column: 1 / -1; accent-color: var(--accent); }
+.push-group { gap: 12px; margin-top: 16px; }
+.push-group p { line-height: 1.5; }
+.push-status[data-error="true"] { color: var(--accent); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 
 .app-footer { display: flex; min-height: 48px; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }

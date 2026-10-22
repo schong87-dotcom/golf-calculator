@@ -8,6 +8,7 @@
     <meta name="description" content="분 단위로 조절하는 뽀모도로 집중 타이머">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="stylesheet" href="styles.css">
     <title>뽀모도로 타이머</title>
   </head>
@@ -156,6 +157,14 @@
             <output id="volume-value" for="volume-control">70%</output>
             <input id="volume-control" type="range" min="0" max="100" step="1" value="70">
           </label>
+
+          <div class="setting-group theme-group push-group">
+            <div>
+              <h2>휴대폰 알림</h2>
+              <p class="push-status" id="push-status" aria-live="polite">알림을 확인하는 중입니다.</p>
+            </div>
+            <button type="button" class="sync-button" id="push-button" hidden>알림 켜기</button>
+          </div>
         </aside>
       </main>
 
@@ -181,6 +190,7 @@
     </div>
     <button class="fullscreen-exit" id="fullscreen-exit" type="button" aria-label="전체화면 닫기">×</button>
     <script src="task-log.js" defer></script>
+    <script src="push-alarm.js" defer></script>
     <script src="app.js" defer></script>
   </body>
 </html>

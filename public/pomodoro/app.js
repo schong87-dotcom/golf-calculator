@@ -319,8 +319,15 @@ function closeActiveRecord() {
   byId('task-input').value = '';
 }
 
+// 휴대폰 알림 문구. 집중이 끝나면 할 일을 묻는다.
+function alarmMessage(task) {
+  if (mode !== 'focus') return { title: '휴식이 끝났습니다', body: '다시 집중할 준비가 되면 시작하세요.' };
+  return { title: '집중 시간이 끝났습니다', body: task && task !== '할 일 미입력' ? `「${task}」 어떻게 됐나요?` : '잠깐 숨을 고르세요.' };
+}
+
 function selectMode(nextMode) {
   if (!modeInfo[nextMode] || nextMode === mode) return;
+  if (timer.status === 'running') window.pomodoroPush.cancel();
   closeActiveRecord();
   releaseWakeLock();
   mode = nextMode;
@@ -365,6 +372,8 @@ function completeTimer(playSound = true) {
   }
   render();
   if (playSound) {
+    // 진동은 안드로이드 브라우저만 된다. 아이폰은 휴대폰 알림(push-alarm.js)이 진동을 맡는다.
+    try { navigator.vibrate?.([500, 250, 500, 250, 500]); } catch { /* 진동을 막은 브라우저는 소리만 낸다. */ }
     // 벨소리만 세 번 울리고 음성 안내는 하지 않는다(2026-10-21 사용자 요청).
     void playAlarm(3).then((completed) => {
       if (completed && floatingWindow && !floatingWindow.closed) floatingWindow.close();
@@ -386,6 +395,19 @@ function getAudioContext() {
     audioContext = new Context();
   }
   return audioContext;
+}
+
+// 휴대폰 브라우저는 사용자가 누른 순간에만 소리를 허락한다. 시작을 누를 때 무음 한 샘플을 틀어 소리 장치를 깨워 두고 벨소리 파일도 미리 받는다.
+function unlockAudio() {
+  try {
+    const context = getAudioContext();
+    void context.resume().catch(() => {});
+    const source = context.createBufferSource();
+    source.buffer = context.createBuffer(1, 1, context.sampleRate);
+    source.connect(context.destination);
+    source.start();
+    if (soundFiles[preferences.sound]) void loadSoundFile(preferences.sound).catch(() => {});
+  } catch { /* 소리를 지원하지 않는 브라우저는 휴대폰 알림과 진동만 쓴다. */ }
 }
 
 function presetTones(name) {
@@ -571,7 +593,8 @@ async function playAlarm(repeatCount = 1) {
       soundGain = 0.7;
     }
     const context = getAudioContext();
-    await context.resume();
+    // 화면이 꺼졌다 켜진 아이폰은 resume 이 끝나지 않을 수 있어 오래 기다리지 않는다.
+    await Promise.race([context.resume(), new Promise((resolve) => window.setTimeout(resolve, 1500))]);
     for (let repetition = 0; repetition < repeatCount; repetition += 1) {
       if (sequenceId !== alarmSequenceId) return false;
       if (soundBuffer) {
@@ -698,17 +721,21 @@ byId('timer-toggle').addEventListener('click', async () => {
   if (timer.status === 'running') {
     timer = { status: 'paused', endAt: null, remaining: activeRemaining(), recordId: timer.recordId };
     releaseWakeLock();
+    window.pomodoroPush.cancel();
   } else {
+    unlockAudio();
     const freshStart = timer.status === 'done' || timer.status === 'idle';
+    if (freshStart) timer.remaining = durations[mode] * 60;
+    timer.endAt = Date.now() + timer.remaining * 1000;
+    // 알림 권한 창은 누른 순간에만 뜬다. 구글 로그인 창이 뜰 수 있는 기록 시작보다 먼저 예약한다.
+    const task = freshStart ? byId('task-input').value.trim() : window.pomodoroLog.find(timer.recordId)?.task;
+    window.pomodoroPush.schedule({ fireAt: timer.endAt, ...alarmMessage(task) });
     if (freshStart) {
-      timer.remaining = durations[mode] * 60;
       timer.recordId = mode === 'focus'
         ? window.pomodoroLog.start({ task: byId('task-input').value, plannedMinutes: durations[mode] })
         : null;
     }
-    timer.endAt = Date.now() + timer.remaining * 1000;
     timer.status = 'running';
-    void getAudioContext().resume().catch(() => {});
     await requestWakeLock();
   }
   render();
@@ -717,6 +744,7 @@ byId('timer-toggle').addEventListener('click', async () => {
 byId('decrease-time').addEventListener('click', () => adjustDuration(-1));
 byId('increase-time').addEventListener('click', () => adjustDuration(1));
 byId('reset-button').addEventListener('click', () => {
+  if (timer.status === 'running') window.pomodoroPush.cancel();
   closeActiveRecord();
   releaseWakeLock();
   startNote = '';
