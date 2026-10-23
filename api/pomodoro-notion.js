@@ -1,4 +1,4 @@
-// 뽀모도로 집중 기록을 노션 「집중 기록」 인라인 데이터베이스에 넣고 고치는 서버 함수. 구글 로그인으로 주인 계정만 쓴다.
+// 뽀모도로 집중 기록을 노션 「집중 기록」 인라인 데이터베이스에 넣고 고치고 지우는 서버 함수. 구글 로그인으로 주인 계정만 쓴다.
 /* global process */
 // 원본은 드라이브 뽀모도로 폴더의 api/pomodoro-notion.js 다. 앱 모음의 사본은 scripts/sync-to-hub.mjs 로만 바꾼다.
 const GOOGLE_CLIENT_ID = '450177760064-6g9lk2lcmi6lm0tvgs40pva4n517u1sr.apps.googleusercontent.com';
@@ -101,6 +101,16 @@ export function createHandler({ fetchImpl = (...args) => fetch(...args), env = p
       });
       if (found.status !== 200) return fail(response, 502, 'notion', `노션 응답 ${found.status}`);
       pageId = found.data.results?.[0]?.id || null;
+    }
+
+    if (body.delete) {
+      if (!pageId) return response.status(200).json({ ok: true, deleted: false });
+      // 휴지통에 든 줄이 롤업에서 빠지는지 확인하지 못해 일별 합계 관계를 먼저 끊는다. 휴지통에 든 줄은 노션에서 되살릴 수 있다.
+      const unlinked = await notion('PATCH', `/pages/${pageId}`, { properties: { '일별 합계': { relation: [] } } });
+      if (unlinked.status !== 200) return fail(response, 502, 'notion', unlinked.data.message || `노션 응답 ${unlinked.status}`);
+      const trashed = await notion('PATCH', `/pages/${pageId}`, { archived: true });
+      if (trashed.status !== 200) return fail(response, 502, 'notion', trashed.data.message || `노션 응답 ${trashed.status}`);
+      return response.status(200).json({ ok: true, deleted: true });
     }
 
     const properties = notionProperties(record);
