@@ -1,4 +1,4 @@
-// 집중 기록(할 일, 시작과 끝 시각, 완료 여부)을 이 기기에 남기고 구글 태스크와 노션으로 보낸다.
+// 집중 기록(할 일, 시작과 끝 시각, 완료 여부)을 이 기기에 남기고 구글 태스크와 노션으로 보낸다. 편집과 삭제도 따라 보낸다.
 (() => {
   const recordsKey = 'pomodoro-dial-records-v1';
   const googleKey = 'pomodoro-dial-google-v1';
@@ -30,7 +30,8 @@
   const save = () => localStorage.setItem(recordsKey, JSON.stringify(records));
   const saveGoogle = () => localStorage.setItem(googleKey, JSON.stringify(google));
   const tokenValid = () => Boolean(google.accessToken) && google.expiresAt > Date.now() + 60_000;
-  const findRecord = (id) => records.find((record) => record.id === id) || null;
+  // 지운 기록은 구글과 노션에서도 지울 때까지 deleted 로 남아 있다. 화면과 타이머에는 없는 기록으로 보인다.
+  const findRecord = (id) => records.find((record) => record.id === id && !record.deleted) || null;
 
   // 노션과 구글이 시간대를 잃지 않도록 기기 시간대 오프셋을 붙인 ISO 문자열로 남긴다.
   function localIso(date) {
@@ -94,6 +95,29 @@
     const record = findRecord(id);
     if (!record || !statuses.includes(status)) return;
     record.status = status;
+    record.awaitingAnswer = false;
+    changed(record, true);
+  }
+
+  function rename(id, task) {
+    const record = findRecord(id);
+    const value = String(task || '').trim().slice(0, 200);
+    if (!record || !value || value === record.task) return;
+    record.task = value;
+    changed(record, true);
+  }
+
+  function remove(id) {
+    const record = findRecord(id);
+    if (!record) return;
+    // 어디에도 보낸 적 없고 보낼 곳도 없으면 바로 뺀다.
+    if (!google.email && !record.googleTaskId && !record.notionPageId) {
+      records.splice(records.indexOf(record), 1);
+      save();
+      render();
+      return;
+    }
+    record.deleted = true;
     record.awaitingAnswer = false;
     changed(record, true);
   }
@@ -210,6 +234,16 @@
     record.googleTaskUrl = task.webViewLink || null;
   }
 
+  async function deleteGoogle(record) {
+    if (!record.googleTaskId) return;
+    try {
+      await googleFetch(`/lists/${encodeURIComponent(await taskListId())}/tasks/${encodeURIComponent(record.googleTaskId)}`, { method: 'DELETE' });
+    } catch (error) {
+      // 구글 태스크에서 먼저 지웠으면 이미 없는 것이니 끝난 것으로 본다.
+      if (error.status !== 404) throw error;
+    }
+  }
+
   async function notionRequest(payload) {
     const response = await fetch(notionEndpoint, {
       method: 'POST',
@@ -251,20 +285,30 @@
     record.notionUrl = result.url;
   }
 
+  // 노션 줄 ID 를 아직 모르면 서버가 기록 ID 로 찾아 지운다.
+  async function deleteNotion(record) {
+    await notionRequest({ delete: true, pageId: record.notionPageId, record: { id: record.id } });
+  }
+
+  const senders = { google: syncGoogle, notion: syncNotion };
+  const removers = { google: deleteGoogle, notion: deleteNotion };
+
   async function syncAll() {
     syncMessage = '';
     for (const record of records.filter((item) => item.dirty?.google || item.dirty?.notion)) {
       if (!tokenValid()) break;
       record.syncError = '';
-      for (const [target, send] of [['google', syncGoogle], ['notion', syncNotion]]) {
-        if (!record.dirty[target]) continue;
+      // 보내는 사이에 편집이나 삭제가 들어오면 dirty 가 새 객체로 바뀐다. 이번에 보낸 판의 표시만 지워 새 변경을 잃지 않는다.
+      const dirty = record.dirty;
+      for (const target of ['google', 'notion']) {
+        if (!dirty[target]) continue;
         if (target === 'notion' && google.notion === 'off') {
-          record.dirty.notion = false;
+          dirty.notion = false;
           continue;
         }
         try {
-          await send(record);
-          record.dirty[target] = false;
+          await (record.deleted ? removers : senders)[target](record);
+          dirty[target] = false;
         } catch (error) {
           record.syncError = error.message;
           if (error.status === 401) {
@@ -273,6 +317,9 @@
             saveGoogle();
           }
         }
+      }
+      if (record.deleted && !record.dirty.google && !record.dirty.notion && records.includes(record)) {
+        records.splice(records.indexOf(record), 1);
       }
       save();
       render();
@@ -347,11 +394,22 @@
     return select;
   }
 
+  function actionButton(label, className, record, open) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `log-action ${className}`;
+    button.textContent = label;
+    button.setAttribute('aria-label', `${record.task} ${label}`);
+    button.addEventListener('click', () => open(record.id));
+    return button;
+  }
+
   function renderList() {
     const list = byId('log-list');
+    const visible = records.filter((record) => !record.deleted);
     list.replaceChildren();
     let lastDay = '';
-    [...records].sort((a, b) => b.startAt.localeCompare(a.startAt)).forEach((record) => {
+    visible.sort((a, b) => b.startAt.localeCompare(a.startAt)).forEach((record) => {
       const day = dayText(record.startAt);
       if (day !== lastDay) {
         const heading = document.createElement('li');
@@ -389,14 +447,46 @@
       sync.textContent = syncLabel(record);
       if (record.syncError) sync.title = record.syncError;
 
-      item.append(check, main, statusControl(record), sync);
+      const actions = document.createElement('div');
+      actions.className = 'log-actions';
+      actions.append(actionButton('편집', 'log-edit', record, openEdit), actionButton('삭제', 'log-delete', record, openDelete));
+
+      item.append(check, main, statusControl(record), sync, actions);
       list.append(item);
     });
-    byId('log-empty').hidden = records.length > 0;
+    byId('log-empty').hidden = visible.length > 0;
+  }
+
+  const recordText = (record) => `${dayText(record.startAt)} ${clockText(record.startAt)} ~ ${record.endAt ? clockText(record.endAt) : '진행 중'}`;
+  let dialogRecordId = '';
+
+  function openEdit(id) {
+    const record = findRecord(id);
+    if (!record || byId('edit-dialog').open) return;
+    dialogRecordId = id;
+    byId('edit-input').value = record.task;
+    byId('edit-note').textContent = `${recordText(record)} 기록`;
+    byId('edit-dialog').showModal();
+  }
+
+  // 지우기 전에 어디까지 지워지는지 알린다.
+  function deleteReach(record) {
+    if (google.email) return google.notion === 'off' ? '구글 태스크에서도 함께 지웁니다.' : '구글 태스크와 노션에서도 함께 지웁니다.';
+    if (record.googleTaskId || record.notionPageId) return '이 기기에서 지우고, 구글을 다시 연결하면 구글 태스크와 노션에서도 지웁니다.';
+    return '이 기기에서 지웁니다.';
+  }
+
+  function openDelete(id) {
+    const record = findRecord(id);
+    if (!record || byId('delete-dialog').open) return;
+    dialogRecordId = id;
+    byId('delete-text').textContent = `「${record.task}」 ${recordText(record)} 기록을 삭제합니다.`;
+    byId('delete-warning').textContent = `${deleteReach(record)} 삭제한 기록은 되돌릴 수 없습니다.`;
+    byId('delete-dialog').showModal();
   }
 
   function renderResult() {
-    const record = [...records].reverse().find((item) => item.awaitingAnswer);
+    const record = [...records].reverse().find((item) => item.awaitingAnswer && !item.deleted);
     byId('task-result').hidden = !record;
     if (!record) return;
     byId('task-result').dataset.recordId = record.id;
@@ -415,6 +505,10 @@
   });
   byId('mark-done').addEventListener('click', () => setStatus(byId('task-result').dataset.recordId, '완료'));
   byId('mark-progress').addEventListener('click', () => setStatus(byId('task-result').dataset.recordId, '진행중'));
+  // 저장과 삭제는 form method="dialog" 의 제출로 받는다. 취소, Esc 는 제출 없이 창만 닫는다.
+  byId('edit-form').addEventListener('submit', () => rename(dialogRecordId, byId('edit-input').value));
+  byId('delete-form').addEventListener('submit', () => remove(dialogRecordId));
+  document.querySelectorAll('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => button.closest('dialog').close()));
 
   const gis = document.createElement('script');
   gis.src = 'https://accounts.google.com/gsi/client';

@@ -9,6 +9,7 @@
   --line-strong: #c8c3bc;
   --accent: #d72e3b;
   --accent-soft: #f5d7d8;
+  --danger: #c3343f;
   --ring: rgba(33, 31, 29, 0.08);
   --shadow: rgba(35, 31, 29, 0.07);
   font-family: "Avenir Next", "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -42,6 +43,7 @@ body[data-theme="dark"] {
   --muted: #a8aaa5;
   --line: #3d403c;
   --line-strong: #5c605a;
+  --danger: #e0606a;
   --ring: rgba(244, 240, 233, 0.12);
   --shadow: rgba(0, 0, 0, 0.22);
 }
@@ -341,7 +343,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .sync-button:hover { border-color: var(--line-strong); }
 .log-list { margin: 0; padding: 0; list-style: none; }
 .log-day { padding: 12px 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
-.log-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.log-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
 .log-check { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .log-main { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .log-task { font-size: 13px; font-weight: 640; overflow-wrap: anywhere; }
@@ -351,6 +353,23 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .log-sync { min-width: 92px; color: var(--muted); font-size: 10px; text-align: right; white-space: nowrap; }
 .log-empty { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
 .log-empty[hidden] { display: none; }
+.log-actions { display: flex; gap: 6px; }
+.log-action { min-height: 30px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 620; white-space: nowrap; }
+.log-action:hover { border-color: var(--line-strong); color: var(--ink); }
+.log-delete:hover { border-color: var(--danger); color: var(--danger); }
+
+.log-dialog { width: min(calc(100% - 32px), 380px); padding: 20px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 14px 40px var(--shadow); }
+.log-dialog::backdrop { background: rgba(23, 24, 23, 0.45); }
+.log-dialog h2 { margin: 0 0 8px; font-size: 16px; font-weight: 720; letter-spacing: -0.03em; }
+.log-dialog p { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.log-dialog label { display: block; margin: 12px 0 6px; color: var(--muted); font-size: 12px; font-weight: 620; }
+.log-dialog input { width: 100%; min-height: 40px; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--page); color: var(--ink); font-size: 16px; }
+.log-dialog .dialog-target { color: var(--ink); font-weight: 620; }
+.log-dialog .delete-warning { color: var(--danger); font-weight: 640; }
+.dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.dialog-buttons button { min-width: 76px; min-height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); cursor: pointer; font-size: 13px; font-weight: 660; }
+.dialog-buttons .dialog-primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+.dialog-buttons .dialog-danger { border-color: var(--danger); background: var(--danger); color: #fff; }
 
 body[data-fullscreen="true"] { overflow: hidden; }
 body[data-fullscreen="true"] .app-shell { max-width: none; justify-content: center; padding: 0; }
@@ -448,7 +467,8 @@ body.pip-body {
   .sync-box { justify-content: flex-start; }
   .sync-status { text-align: left; }
   .log-item { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .log-sync { grid-column: 2 / -1; min-width: 0; text-align: left; }
+  .log-sync { grid-column: 2; min-width: 0; text-align: left; }
+  .log-actions { grid-column: 3; justify-self: end; }
   .app-footer { min-height: 43px; font-size: 10px; }
   .fullscreen-button { display: none; }
   .floating-button { display: none; }

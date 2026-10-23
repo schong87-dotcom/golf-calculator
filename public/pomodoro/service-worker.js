@@ -1,6 +1,6 @@
 // 오프라인에서도 타이머 화면을 불러오도록 앱 파일을 보관하고, 타이머가 끝났다는 푸시를 받으면 휴대폰 알림을 띄운다.
 const cachePrefix = 'pomodoro-dial-';
-const cacheName = `${cachePrefix}v9`;
+const cacheName = `${cachePrefix}v10`;
 const appFiles = [
   './', './index.html', './styles.css', './task-log.js', './push-alarm.js', './app.js', './manifest.webmanifest',
   './assets/icon.svg', './assets/icon-192.png',

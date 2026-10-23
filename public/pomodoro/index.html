@@ -189,6 +189,29 @@
       </footer>
     </div>
     <button class="fullscreen-exit" id="fullscreen-exit" type="button" aria-label="전체화면 닫기">×</button>
+    <dialog class="log-dialog" id="edit-dialog" aria-labelledby="edit-title">
+      <form id="edit-form" method="dialog">
+        <h2 id="edit-title">한 일 편집</h2>
+        <p id="edit-note"></p>
+        <label for="edit-input">할 일</label>
+        <input id="edit-input" type="text" maxlength="200" required pattern=".*\S.*" title="할 일을 적어 주세요." autocomplete="off" autofocus>
+        <div class="dialog-buttons">
+          <button type="button" data-close-dialog>취소</button>
+          <button type="submit" class="dialog-primary">저장</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog class="log-dialog" id="delete-dialog" aria-labelledby="delete-title">
+      <form id="delete-form" method="dialog">
+        <h2 id="delete-title">기록을 삭제할까요?</h2>
+        <p class="dialog-target" id="delete-text"></p>
+        <p class="delete-warning" id="delete-warning"></p>
+        <div class="dialog-buttons">
+          <button type="button" data-close-dialog autofocus>취소</button>
+          <button type="submit" class="dialog-danger">삭제</button>
+        </div>
+      </form>
+    </dialog>
     <script src="task-log.js" defer></script>
     <script src="push-alarm.js" defer></script>
     <script src="app.js" defer></script>
