@@ -1,6 +1,7 @@
 // 로그인 후 어떤 앱으로 들어갈지 고르는 허브 화면
 // 재무제표 게임과 이북리더기는 같은 오리진의 정적 페이지라 공통 배포 주소에서 바로 이어진다.
 // 쟈베스 업무관리 시스템은 별도 Vercel 프로젝트(jabez-workspace)라 배포 주소로 연결하고, 로그인은 그 앱의 회사 계정으로 따로 한다.
+// 유튜브 다운로더는 Vercel 서버에서 유튜브가 봇 확인으로 막아(2026-10-29 iad1, icn1 시험) 이 맥에서 도는 로컬 앱(8777 포트)으로 연결한다.
 export default function AppHub({ username, onSelectGolf, onSelectMeeting, onLogout }) {
   return (
     <div className="hub-page">
@@ -77,6 +78,15 @@ export default function AppHub({ username, onSelectGolf, onSelectMeeting, onLogo
             <span className="hub-card-body">
               <span className="hub-card-title">노션 비서</span>
               <span className="hub-card-desc">한 줄로 적으면 노션과 구글 캘린더, 구글 할 일에 함께 기록합니다</span>
+            </span>
+            <span className="hub-card-arrow">›</span>
+          </a>
+
+          <a className="hub-card hub-card-youtube" href="http://127.0.0.1:8777/">
+            <span className="hub-card-icon">📥</span>
+            <span className="hub-card-body">
+              <span className="hub-card-title">유튜브 다운로더</span>
+              <span className="hub-card-desc">유튜브 영상을 mp4나 mp3로 받습니다. 이 맥에서 켜 둔 앱으로 열립니다</span>
             </span>
             <span className="hub-card-arrow">›</span>
           </a>
