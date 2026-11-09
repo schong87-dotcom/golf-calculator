@@ -18,6 +18,12 @@ const soundFiles = {
   'koshi-chime': 'assets/sounds/koshi-chime.mp3',
 };
 const presetSounds = ['chime', 'bell', 'digital', 'soft', ...Object.keys(soundFiles)];
+// 최상위 모드 크기. 소가 원래 크기이고 한 단계마다 30% 커진다(2026-11-09 사용자 요청, 너무 크지 않게).
+const floatingSizes = {
+  small: { name: '소', scale: 1 },
+  medium: { name: '중', scale: 1.3 },
+  large: { name: '대', scale: 1.3 * 1.3 },
+};
 const byId = (id) => document.getElementById(id);
 const body = document.body;
 const modeTabs = [...document.querySelectorAll('.mode-tab')];
@@ -46,6 +52,7 @@ const preferences = {
   theme: savedPreferences.theme === 'dark' ? 'dark' : 'light',
   sound: presetSounds.includes(selectedSound) || selectedSound === 'custom' || /^mac-\d+$/.test(selectedSound || '') ? selectedSound : 'chime',
   volume: Math.max(0, Math.min(100, Number(savedPreferences.volume ?? 70))),
+  floatingSize: floatingSizes[savedPreferences.floatingSize] ? savedPreferences.floatingSize : 'small',
 };
 const savedNextTasks = readStorage(nextTasksKey, []);
 const nextTasks = Array.isArray(savedNextTasks) ? savedNextTasks.filter((task) => typeof task === 'string') : [];
@@ -314,21 +321,44 @@ function updateFloatingClock() {
   pipDocument.getElementById('pip-time').textContent = formatTime(remaining);
 }
 
+function floatingSize() {
+  const small = Math.round(Math.min(300, Math.max(180, (screen.availWidth || 1920) * 0.12)));
+  return Math.round(small * floatingSizes[preferences.floatingSize].scale);
+}
+
+// 고른 크기로 PiP 창 안쪽을 정사각형으로 맞춘다. resizeTo 는 제목 줄까지 포함한 바깥 크기를 받는다.
+// 창 안 버튼을 누른 순간(사용자 동작)이라야 크롬이 크기 변경을 허락한다.
+function applyFloatingSize(pipWindow) {
+  const size = floatingSize();
+  const pipDocument = pipWindow.document;
+  pipDocument.body.style.setProperty('--pip-scale', String(floatingSizes[preferences.floatingSize].scale));
+  pipDocument.querySelectorAll('.pip-sizes button').forEach((button) => {
+    button.setAttribute('aria-pressed', String(button.dataset.size === preferences.floatingSize));
+  });
+  try {
+    pipWindow.resizeTo(size + pipWindow.outerWidth - pipWindow.innerWidth, size + pipWindow.outerHeight - pipWindow.innerHeight);
+  } catch { /* 브라우저에 따라 문서 창 크기 변경을 지원하지 않는다. */ }
+}
+
 async function openFloatingClock() {
   const pictureInPicture = window.documentPictureInPicture;
   if (!pictureInPicture) return;
-  const size = Math.round(Math.min(300, Math.max(180, (screen.availWidth || 1920) * 0.12)));
-  const pipWindow = await pictureInPicture.requestWindow({ width: size, height: size });
-  try { pipWindow.resizeTo(size, size); } catch { /* 브라우저에 따라 문서 창 크기 변경을 지원하지 않는다. */ }
+  const size = floatingSize();
+  // 크롬이 기억해 둔 지난 창 크기 대신 고른 크기로 연다.
+  const pipWindow = await pictureInPicture.requestWindow({ width: size, height: size, preferInitialWindowPlacement: true });
   floatingWindow = pipWindow;
   const pipDocument = pipWindow.document;
   pipDocument.title = '뽀모도로 최상위 모드';
   const viewport = pipDocument.createElement('meta');
   viewport.name = 'viewport';
   viewport.content = 'width=device-width, initial-scale=1';
-  const stylesheet = pipDocument.createElement('link');
-  stylesheet.rel = 'stylesheet';
-  stylesheet.href = new URL('./styles.css', document.baseURI).href;
+  // 스타일시트를 링크로 걸지 않고 규칙을 그대로 옮겨 적는다(크롬 문서 PiP 안내의 방식).
+  // 2026-11-09 Playwright 로 띄운 크롬에서는 PiP 창의 링크가 요청만 가고 끝내 적용되지 않았다.
+  const stylesheet = pipDocument.createElement('style');
+  stylesheet.textContent = [...document.styleSheets]
+    .filter((sheet) => sheet.href && new URL(sheet.href).pathname.endsWith('/styles.css'))
+    .flatMap((sheet) => [...sheet.cssRules].map((rule) => rule.cssText))
+    .join('\n');
   pipDocument.head.append(viewport, stylesheet);
 
   const clock = pipDocument.createElement('main');
@@ -342,7 +372,26 @@ async function openFloatingClock() {
   pipDocument.body.className = 'pip-body';
   pipDocument.body.dataset.accent = preferences.accent;
   pipDocument.body.dataset.theme = preferences.theme;
-  pipDocument.body.replaceChildren(clock);
+  // 크기 버튼은 창 위에 마우스를 올렸을 때만 보인다. 평소에는 시계만 보인다.
+  const sizes = pipDocument.createElement('div');
+  sizes.className = 'pip-sizes';
+  sizes.setAttribute('role', 'group');
+  sizes.setAttribute('aria-label', '최상위 모드 크기');
+  Object.entries(floatingSizes).forEach(([key, { name }]) => {
+    const button = pipDocument.createElement('button');
+    button.type = 'button';
+    button.dataset.size = key;
+    button.textContent = name;
+    button.setAttribute('aria-label', `크기 ${name}`);
+    button.addEventListener('click', () => {
+      preferences.floatingSize = key;
+      savePreferences();
+      applyFloatingSize(pipWindow);
+    });
+    sizes.append(button);
+  });
+  pipDocument.body.replaceChildren(sizes, clock);
+  applyFloatingSize(pipWindow);
   attachDialDrag(pipSvg);
   pipWindow.addEventListener('pagehide', () => {
     if (floatingWindow === pipWindow) floatingWindow = null;
