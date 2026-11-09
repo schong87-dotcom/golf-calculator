@@ -449,7 +449,8 @@ body.pip-body {
   user-select: none;
 }
 
-.pip-clock { position: relative; width: min(100%, 100vh); aspect-ratio: 1; }
+/* 높이 한도에서 body 위아래 여백 16px 를 뺀다. 크롬이 창 너비를 240 아래로 줄이지 않아 창이 가로로 길 때 시계 아래가 잘리던 것을 막는다. */
+.pip-clock { position: relative; width: min(100%, calc(100vh - 16px)); aspect-ratio: 1; }
 .pip-dial-shell { position: absolute; inset: 0; }
 .pip-center {
   position: absolute;
