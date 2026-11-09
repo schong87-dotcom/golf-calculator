@@ -8,6 +8,7 @@ const modeInfo = {
 const durationKey = 'pomodoro-dial-durations-v1';
 const preferenceKey = 'pomodoro-dial-preferences-v1';
 const timerKey = 'pomodoro-dial-timer-v1';
+const nextTasksKey = 'pomodoro-dial-next-tasks-v1';
 // 위키미디어 공용의 퍼블릭 도메인과 CC0 녹음을 잘라 넣은 벨소리다. 출처는 assets/sounds/CREDITS.md.
 const soundFiles = {
   'singing-bowl': 'assets/sounds/singing-bowl.mp3',
@@ -46,6 +47,8 @@ const preferences = {
   sound: presetSounds.includes(selectedSound) || selectedSound === 'custom' || /^mac-\d+$/.test(selectedSound || '') ? selectedSound : 'chime',
   volume: Math.max(0, Math.min(100, Number(savedPreferences.volume ?? 70))),
 };
+const savedNextTasks = readStorage(nextTasksKey, []);
+const nextTasks = Array.isArray(savedNextTasks) ? savedNextTasks.filter((task) => typeof task === 'string') : [];
 const savedTimer = readStorage(timerKey, {});
 let mode = modeInfo[savedTimer.mode] ? savedTimer.mode : 'focus';
 let timer = { status: 'idle', endAt: null, remaining: durations[mode] * 60 };
@@ -81,6 +84,42 @@ function saveDurations() {
 
 function savePreferences() {
   localStorage.setItem(preferenceKey, JSON.stringify(preferences));
+}
+
+function saveNextTasks() {
+  localStorage.setItem(nextTasksKey, JSON.stringify(nextTasks));
+}
+
+// 다음 할 일 칸을 저장한 순서대로 그린다. 한 줄을 지우면 남은 줄의 번호를 다시 매긴다.
+function renderNextTasks(focusIndex = -1) {
+  const list = byId('next-list');
+  list.replaceChildren(...nextTasks.map((task, index) => {
+    const item = document.createElement('li');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 200;
+    input.autocomplete = 'off';
+    input.placeholder = '다음에 할 일';
+    input.value = task;
+    input.setAttribute('aria-label', `다음 할 일 ${index + 1}`);
+    input.addEventListener('input', () => {
+      nextTasks[index] = input.value;
+      saveNextTasks();
+    });
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'next-remove';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', `다음 할 일 ${index + 1} 지우기`);
+    remove.addEventListener('click', () => {
+      nextTasks.splice(index, 1);
+      saveNextTasks();
+      renderNextTasks();
+    });
+    item.append(input, remove);
+    return item;
+  }));
+  list.children[focusIndex]?.querySelector('input').focus();
 }
 
 function saveTimer() {
@@ -741,6 +780,11 @@ byId('timer-toggle').addEventListener('click', async () => {
   render();
 });
 
+byId('add-next-task').addEventListener('click', () => {
+  nextTasks.push('');
+  saveNextTasks();
+  renderNextTasks(nextTasks.length - 1);
+});
 byId('decrease-time').addEventListener('click', () => adjustDuration(-1));
 byId('increase-time').addEventListener('click', () => adjustDuration(1));
 byId('reset-button').addEventListener('click', () => {
@@ -863,6 +907,7 @@ compactViewport.addEventListener('change', (event) => { floatingButton.hidden = 
 attachDialDrag(byId('dial-svg'));
 applyPreferences();
 setDialMarks();
+renderNextTasks();
 render();
 void loadSoundLibrary().catch(() => {
   byId('sound-status').textContent = '저장한 소리를 불러오지 못했습니다.';

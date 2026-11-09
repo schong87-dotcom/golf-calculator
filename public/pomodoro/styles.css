@@ -264,6 +264,31 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .minute-stepper button:disabled { cursor: not-allowed; opacity: 0.42; }
 .minute-stepper output { min-width: 38px; text-align: center; font-size: 13px; font-weight: 660; font-variant-numeric: tabular-nums; }
 
+.next-tasks { display: flex; width: min(100%, 300px); flex-direction: column; gap: 8px; margin-top: 12px; }
+.next-heading { display: flex; align-items: center; justify-content: space-between; }
+.next-title { color: var(--muted); font-size: 13px; font-weight: 620; }
+.next-add, .next-remove {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+}
+.next-add:hover { border-color: var(--accent); color: var(--accent); }
+.next-remove { color: var(--muted); font-size: 16px; }
+.next-remove:hover { border-color: var(--danger); color: var(--danger); }
+.next-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.next-list:empty { display: none; }
+.next-list li { display: flex; align-items: center; gap: 6px; }
+.next-list input { min-width: 0; min-height: 34px; flex: 1; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font-size: 13px; }
+
 .phase-note { min-height: 20px; margin: 12px 0 10px; color: var(--muted); font-size: 12px; text-align: center; }
 .timer-actions { display: flex; justify-content: center; }
 .reset-button { min-height: 35px; padding: 0 11px; font-size: 12px; }
@@ -376,6 +401,7 @@ body[data-fullscreen="true"] .app-shell { max-width: none; justify-content: cent
 body[data-fullscreen="true"] .app-header,
 body[data-fullscreen="true"] .mode-tabs,
 body[data-fullscreen="true"] .duration-control,
+body[data-fullscreen="true"] .next-tasks,
 body[data-fullscreen="true"] .phase-note,
 body[data-fullscreen="true"] .timer-actions,
 body[data-fullscreen="true"] .settings-panel,
